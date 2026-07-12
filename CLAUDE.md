@@ -16,7 +16,13 @@ revisions, verified/unverified upstream APIs, and MCP/provider protocol facts.
 
 Items in `TODO.md` marked **unverified-pending-local-probe** must be confirmed against a live
 service or a real clone before writing code against them — do not code blind against a `⚠️
-UNVERIFIED` signature.
+UNVERIFIED` signature. Many items' "Done when" criteria require recording what a probe found in
+a `docs/*.md` file (`docs/nibli-api.md`, `docs/mcp-probe.md`, `docs/proxy.md`, `docs/dictionary.md`,
+`docs/providers.md`) — later phases read those records instead of re-probing, so write them.
+
+When planning work across items, use `TODO.md`'s **"Parallelization notes"** section (bottom of
+the file) for the phase dependency graph — e.g. Phases 1 and 2 are independent, and Phase 4 no
+longer depends on Phase 2 since the Official gate went local.
 
 ## What the project is (big picture)
 
@@ -57,8 +63,9 @@ local; jbotci `gentufa` stays an LLM tool during translation, not a validator ga
 
 `gerna` (parse), `smuni` (semantic compile), `nibli-render` (English gloss), `smuni-dictionary`
 (arity/place-structure). All four must be pinned to the **same** git rev so the shared
-`nibli-types` crate dedups. The pin SHA lives in a `NIBLI_REV` file (get it via
-`git ls-remote https://github.com/dhilipsiva/nibli.git main`). `nibli-render::render_logic_buffer`
+`nibli-types` crate dedups. The pin SHA belongs in a top-of-repo `NIBLI_REV` file — **not created
+yet** (a Phase 0 item; get the SHA via `git ls-remote https://github.com/dhilipsiva/nibli.git main`
+and record it there and in the Ground-truth header). `nibli-render::render_logic_buffer`
 and `smuni_dictionary::back_translate` are **unverified** — confirm before use.
 
 ## Development environment (Nix flake + WSL)
