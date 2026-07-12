@@ -1,3 +1,8 @@
+> **Provenance:** carried verbatim from `nibli/LOGIC_IR.md` at nibli @ 6c59357c95c8.
+> The gerna→AST→smuni→LogicBuffer half documents exactly what this repo's crates
+> emit; the logji/proof-trace/WIT half describes the reasoning engine that stayed
+> in nibli.
+
 # The nibli logic IR (`LogicBuffer`) — a consumable format
 
 This is the specification of nibli's first-order-logic intermediate representation: the

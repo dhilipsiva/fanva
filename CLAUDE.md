@@ -2,71 +2,41 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Current state vs. intended project
+## What this repo is
 
-This repo is currently a bare `cargo init` scaffold: `src/main.rs` is a hello-world `main()`
-and `Cargo.toml` (single binary crate `fanva`, `edition = "2024"`) has **no dependencies**.
-Essentially none of the real project has been built yet.
+**fanva** — an agentic English→Lojban translator, extracted from
+`github.com/dhilipsiva/nibli` (it was the Transparency Triad's "Formalize"
+feature in legacy-Lojban mode) at the rev pinned in `NIBLI_REV`. The extraction
+was copy-only; the Klaro/reasoning side stayed in nibli. `README.md` has the
+architecture overview; `TODO.md` tracks open work; `docs/` holds provenance
+material (genesis prompt, historical trackers, known-failures reference).
 
-`TODO.md` is the authoritative spec. It is a phased, execute-item-by-item backlog (Phases 0–9)
-for turning this scaffold into **`fanva`, an agentic English→Lojban translator**. Before doing
-any substantive work, read `TODO.md` — and in particular its **"Ground truth / do-not-drift"**
-header, which every later item references. Treat that header as the source of truth for pinned
-revisions, verified/unverified upstream APIs, and MCP/provider protocol facts.
-
-Items in `TODO.md` marked **unverified-pending-local-probe** must be confirmed against a live
-service or a real clone before writing code against them — do not code blind against a `⚠️
-UNVERIFIED` signature. Many items' "Done when" criteria require recording what a probe found in
-a `docs/*.md` file (`docs/nibli-api.md`, `docs/mcp-probe.md`, `docs/proxy.md`, `docs/dictionary.md`,
-`docs/providers.md`) — later phases read those records instead of re-probing, so write them.
-
-When planning work across items, use `TODO.md`'s **"Parallelization notes"** section (bottom of
-the file) for the phase dependency graph — e.g. Phases 1 and 2 are independent, and Phase 4 no
-longer depends on Phase 2 since the Official gate went local.
-
-## What the project is (big picture)
-
-An agentic translator that takes English and produces **verified** Lojban. Two workspace members
-are planned (they do not exist yet):
-
-- `fanva-ui/` — a **Dioxus 0.7.x WASM** web app (`dx serve`/`dx build`). Holds all the logic:
-  the LLM client, the MCP client, the three-gate validator, and the agentic loop.
-- `fanva-proxy/` — a **Cloudflare Worker** (`wrangler`) that proxies browser requests to the
-  `jbotci` MCP server. **This proxy is not optional:** jbotci enforces an Origin allowlist and
-  returns **403** to any browser Origin, so a server-to-server proxy (which forwards no browser
-  Origin) is the only way the WASM app can reach it.
-
-### The core loop (planned, Phases 1–5)
+### The core loop (implemented, in `fanva/`)
 
 ```
-English ──▶ LLM (BYO key, multi-provider, tool-calling)
-              │  can call jbotci MCP tools mid-turn (dictionary, grammar, morphology…)
-              ▼
-         candidate Lojban
-              │
-              ▼
-   three-gate validator (fail-fast, cheapest-first):
-     1. gate_gerna   → gerna::parse_checked         (local, syntax)
-     2. gate_smuni   → smuni::compile_from_gerna_ast (local, semantics/arity)
-     3. official_gate → vendored local `camxes.js` (ilmentufa, MIT) via JS-interop (grammar gate)
-              │
-        pass all ──▶ Success (valid Lojban + LogicBuffer, then tersmu meaning check)
-        any fail  ──▶ append the exact compiler/gate error to history, re-prompt, retry
-                      (bounded by max_attempts + oscillation guard)
+English → LLM (BYO key; Anthropic/OpenAI/OpenRouter/Gemini/Custom; may call
+           jbotci MCP tools mid-turn through fanva-proxy)
+        → candidate Lojban
+        → gates: gerna::parse_checked → smuni::compile_from_gerna_ast →
+                 camxes official_gate (wasm-only, vendored ilmentufa)
+        → advisory fresh-context semantic verifier (fail-open)
+        → on any failure: exact compiler error appended to history, retry
+          (max_attempts, oscillation guard, MAX_HISTORY_PAIRS=3 trim)
 ```
 
-The design target is the **intersection** gerna ∧ smuni ∧ camxes — gerna is the narrowest gate
-and the binding constraint, which is why `max_attempts` caps runaway LLM cost. (All three gates are
-local; jbotci `gentufa` stays an LLM tool during translation, not a validator gate — see `TODO.md`.)
+Success = the intersection **gerna ∧ smuni ∧ camxes**; gerna is the narrowest
+gate and the binding constraint.
 
-### Upstream dependencies (from `github.com/dhilipsiva/nibli`, pinned to one rev)
+### Workspace members
 
-`gerna` (parse), `smuni` (semantic compile), `nibli-render` (English gloss), `smuni-dictionary`
-(arity/place-structure). All four must be pinned to the **same** git rev so the shared
-`nibli-types` crate dedups. The pin SHA belongs in a top-of-repo `NIBLI_REV` file — **not created
-yet** (a Phase 0 item; get the SHA via `git ls-remote https://github.com/dhilipsiva/nibli.git main`
-and record it there and in the Ground-truth header). `nibli-render::render_logic_buffer`
-and `smuni_dictionary::back_translate` are **unverified** — confirm before use.
+`fanva` (engine + `fanva-validate` bin) · `fanva-ui` (Dioxus 0.7 web app; the
+ONLY crate with a UI) · `fanva-verify` (parse-differential + Predilex gates) ·
+`gerna` · `smuni` · `smuni-dictionary` · `nibli-types` · `nibli-protocol` ·
+`nibli-render` (upstream names kept for provenance). Excluded from the
+workspace: `fuzz/` (cargo-fuzz package) and `fanva-proxy/` (JS Cloudflare
+Worker). The `nibli-*` crates and `gerna`/`smuni`/`smuni-dictionary` are
+vendored copies — all path-deps resolve to the ONE in-repo `nibli-types`
+(a git-dep mix would create two incompatible `AstBuffer` types).
 
 ## Development environment (Nix flake + WSL)
 
@@ -75,73 +45,79 @@ runs on the **Windows host**. **Run every command inside WSL** — never build f
 over the `\\wsl.localhost\...` UNC path: Cargo's incremental cache corrupts over the 9P mount,
 `git` reports "dubious ownership", and tool PATHs differ (e.g. `npm` leaks in from a Windows mount).
 
-The dev environment is a **Nix flake** (`flake.nix`; inputs pinned in `flake.lock`). Nix with
-flakes is already set up in this WSL. The flake provides a pinned Rust toolchain (stable +
-`wasm32-unknown-unknown`, with clippy/rustfmt/rust-analyzer), `dioxus-cli` (`dx` 0.7.x),
-`wrangler`, `nodejs`, and `just`. Enter it either way:
-- `nix develop` — one-off shell with all tools on PATH.
-- `direnv allow` — the checked-in `.envrc` auto-loads the flake on `cd`. The flake's cargo/rustc
-  shadow the global rustup toolchain in `~/.cargo/bin`.
+The dev environment is a **Nix flake** (`flake.nix`; inputs pinned in `flake.lock`). It provides
+the pinned Rust toolchain (stable + `wasm32-unknown-unknown`), `dx` (dioxus-cli), `wrangler`,
+`nodejs`, `just`, `wasm-pack`, `cargo-fuzz` + a pinned nightly (`NIBLI_NIGHTLY_BIN`), `python3`,
+and the pinned ilmentufa checkout (`NIBLI_CAMXES_DIR`). Enter it with `nix develop` or
+`direnv allow` (checked-in `.envrc`).
 
 **Invoking WSL from the Windows host (e.g. the Bash tool):**
 - Pattern: `wsl.exe -- bash -lc 'cd /home/dhilipsiva/projects/dhilipsiva/fanva && nix develop --command <cmd>'`
   (or enter the shell first). For a command with pipes/quotes/loops, wrap it as
   `nix develop --command bash -lc "<full command line>"` — and if it's non-trivial, prefer the
-  script-file method below, which survives both the `wsl.exe` and `--command` layers.
+  script-file method below.
 - Do **not** use `wsl.exe --cd <linux-path>` — it fails with `ERROR_PATH_NOT_FOUND` when the Windows
   cwd is a UNC path.
 - Anything with loops, quotes, or `$vars` gets mangled when inlined through `wsl.exe` from Git Bash.
-  Instead write a script file (the editor can write to `\\wsl.localhost\ubuntu\tmp\x.sh`) and run
-  `wsl.exe -- bash -lc 'bash /tmp/x.sh'`.
+  Instead write a script file (the editor can write to `\\wsl.localhost\ubuntu\tmp\x.sh`), strip CR
+  (`sed -i 's/\r$//' /tmp/x.sh`), and run `wsl.exe -- bash -lc 'bash /tmp/x.sh'`.
 
 ## Commands
 
-All commands run **inside the flake dev shell, inside WSL** (see above) — either from a
-`nix develop` shell or prefixed with `nix develop --command`.
+All inside the flake dev shell, inside WSL. `just --list` shows everything; the load-bearing ones:
 
-### Works today (single-crate scaffold)
-- Build: `cargo build` · Run: `cargo run` · Test: `cargo test`
-- Format / lint: `cargo fmt` / `cargo clippy`
-- Enter/refresh the toolchain: `nix develop` · `nix flake update` (re-pin inputs). `nix flake check`
-  currently only confirms the flake evaluates and the dev shell builds — there are no `checks` /
-  `packages` outputs yet; add them (e.g. `cargo clippy` / `cargo fmt --check`) once the crates land.
-
-### Planned (tooling is provided by the flake; the `fanva-ui` / `fanva-proxy` crates it targets don't exist yet — per `TODO.md`)
-- Dev server (WASM UI): `dx serve --platform web`
-- Release web build: `dx build --release --platform web` (or `dx bundle`)
-- Native unit tests (pure-logic modules: providers, gates, agent):
-  `cargo test -p fanva-ui --lib`
-- Single test module / test: `cargo test -p fanva-ui --lib gates::` or
-  `cargo test -p fanva-ui --lib <test_name>`
-- WASM tests (gloo-net / MCP client): `wasm-pack test --node`; the camxes `official_gate`
-  (JS-interop) needs a **browser** test: `wasm-pack test --headless`. Note: `wasm-pack` is
-  **not in the flake yet** — add it to `flake.nix` before Phase 4/8 testing.
-- Proxy dev / deploy: `wrangler dev` / `wrangler deploy` (in `fanva-proxy/`)
-
-Testing strategy per `TODO.md`: pure-logic modules stay on **native `cargo test`** with a mocked
-`chat()` and mocked `McpClient`; wasm-only modules use `wasm-pack test --node`, except the
-JS-interop `official_gate`, which native tests and `--node` cannot exercise — it needs the
-headless-browser wasm test.
+- Workspace tests: `just test` (= `cargo test --workspace`)
+- Engine tests: `just test-fanva` (`cargo test -p fanva --lib`) · single module:
+  `cargo test -p fanva --lib gates::` · parser suite: `just test-gerna`
+- Wasm tests (camxes marshalling): `just test-fanva-wasm` (`wasm-pack test --node fanva`)
+- UI wasm check without dx: `just check-ui-wasm`
+- Conformance gates: `just verify-parser` (gerna↔camxes differential; real run needs the
+  Nix shell's node + `NIBLI_CAMXES_DIR`, else it self-skips) · `just verify-dict` (Predilex)
+- Fuzz: `just fuzz-seed && just fuzz-parse 60` (needs `NIBLI_NIGHTLY_BIN`; LSan stays on)
+- UI dev server: `just ui` (= `cd fanva-ui && dx serve --port 8080`) · release build:
+  `just build-ui` (output `target/dx/fanva-ui/release/web/public/`)
+- Dictionary: `just fetch-dict` (optional 10 MB lensisku export → full-vocab
+  smuni-dictionary build; without it build.rs falls back to ~175 curated entries with a
+  cargo:warning — tests are written to pass in both modes)
+- Flywheel: `just classify`, `just test-classifier`, `just generate-training` (needs
+  `ANTHROPIC_API_KEY`), `just model-train|eval|refine|push`
+- Proxy: `cd fanva-proxy && npm install && npx wrangler dev` (see `fanva-proxy/DEPLOY.md`;
+  the acceptance test is a curl of the MCP `initialize` through the local worker)
+- CI aggregate: `just ci` / `just ci-all` (what `.github/workflows/ci.yml` runs)
 
 ## Non-obvious things to get right
 
-- **Proxy CORS is the whole reason `fanva-proxy` exists.** The Worker must NOT forward the browser
-  `Origin` to jbotci, must answer `OPTIONS` with the app's CORS headers, and must relay the
-  `Mcp-Session-Id` response header back. See Phase 0 in `TODO.md` for the exact header list.
-- **jbotci MCP** = Streamable-HTTP JSON-RPC at `https://jbotci.app/mcp`, protocol `2025-06-18`.
-  Requests need `Accept: application/json, text/event-stream`; responses may come back as EITHER
-  `application/json` OR `text/event-stream` (SSE) — the client must handle both. Send
-  `notifications/initialized` after `initialize`. Discover the 7 tools via `tools/list` at runtime
-  — **do not hardcode tool schemas**.
-- **Per-provider tool-calling shapes differ** (Anthropic vs OpenAI/OpenRouter vs Gemini) — request
-  format, tool-call parsing, and tool-result submission all diverge. The exact shapes are
-  documented in `TODO.md`'s Ground-truth header; follow it rather than guessing. Notably OpenAI
-  tool-call `arguments` is a **stringified JSON** that must be parsed and validated.
-- **BYO-key model:** the LLM API key lives only in a Dioxus signal (in memory), and requests go
-  straight to the provider. The only server the app owns is the jbotci proxy, which holds no
-  secrets.
-- **Vendoring `camxes.js` has license strings attached** (per the [DECISION] in `TODO.md`):
-  vendor the **standard grammar only** (not beta/cbm/ckt), pinned to a specific ilmentufa commit,
-  and ship a `NOTICE` with the MIT attribution (ilmentufa + Masato Hagiwara). fanva has **no
-  `LICENSE` of its own yet** — pick one before finalizing that attribution. Also verify the
-  vendored file's module format (ESM vs UMD/global) and error shape before binding it from Rust.
+- **The camxes gate is fail-open.** `official_gate` returns `Ok` when
+  `window.camxes_validate` is absent (shim not loaded, or native target). Nothing errors —
+  translation silently runs on 2 gates instead of 3. When touching the UI's script tags or the
+  vendor dir, verify in the browser that `window.camxes_validate` is defined.
+- **Two camxes artifacts, one pin.** The flake's `ilmentufa` input (node CLI used by
+  `verify-parser`) and the vendored browser files in `fanva-ui/assets/js/vendor/camxes/` must
+  stay at the SAME upstream rev (currently `778ea13…`, recorded in the flake URL, `flake.lock`,
+  `VENDOR.md`, and `NOTICE`). Refresh procedure is in `VENDOR.md`; only `camxes_shim.js` is
+  first-party — never edit `camxes.js`/`camxes_preproc.js`.
+- **Layout-sensitive `include_str!`s.** `fanva-verify/src/corpora.rs` and gerna's test modules
+  embed the repo-root `*.lojban` corpora via `../../` paths, and `fanva-verify/src/predilex.rs`
+  embeds `../vendor/predilex/*.csv` (byte-exact; `.gitattributes` pins LF — don't let a Windows
+  checkout CRLF them). Moving crates or corpora breaks compiles.
+- **jbotci MCP client invariants** (`fanva/src/mcp/`): Streamable-HTTP at protocol
+  `2025-06-18`; responses arrive as `application/json` OR `text/event-stream` (both handled in
+  `wire.rs`); `Mcp-Session-Id` echoed, 404-with-session ⇒ re-initialize; empty proxy URL ⇒
+  `is_available() == false` ⇒ the agent runs tool-free and flags `degraded`. Tool schemas are
+  discovered via `tools/list` — never hardcoded.
+- **Per-provider quirks are pinned in code** (`fanva/src/llm/request.rs`): Anthropic needs
+  `anthropic-dangerous-direct-browser-access: true` and NO temperature; OpenAI tool-call
+  `arguments` is stringified JSON; Gemini uses role `"model"`, correlates tool results by NAME,
+  requires `thoughtSignature` echo, and rejects raw JSON Schema (see `sanitize_gemini_schema`).
+- **BYO-key model:** the API key lives only in a Dioxus signal; requests go browser-direct to
+  the provider. The only server this repo owns is `fanva-proxy` (no secrets; jbotci itself is
+  AGPL-3.0 — a remote service, no code linkage).
+- **The deployed worker is shared.** `https://fanva-proxy.dhilipsiva.workers.dev/mcp` (the
+  UI's prefilled default) currently also serves nibli's UI until nibli's Lojban purge lands.
+  Don't redeploy or change `ALLOWED_ORIGINS` casually; local dev origins go in `.dev.vars`.
+- **The prompt guard test is a gate.** Every few-shot example in `LOJBAN_SYSTEM_PROMPT` must
+  pass the crate's own gates (`system_prompt.rs` test) — editing the prompt means keeping the
+  examples gate-valid in BOTH dictionary modes (fallback and full).
+- **`fanva-validate` is the python flywheel's contract:** JSON-per-line on stdout, accepts
+  `--lang lojban` for compatibility. `generate_training_data.py`/`nibli_model.py` subprocess
+  `target/{debug,release}/fanva-validate`.

@@ -1,6 +1,6 @@
 // fanva-proxy — a CORS-adding reverse proxy for the jbotci MCP endpoint.
 //
-// Why this exists: nibli-fanva's browser McpClient (wasm/gloo-net fetch) needs to
+// Why this exists: fanva's browser McpClient (wasm/gloo-net fetch) needs to
 // reach https://jbotci.app/mcp, but jbotci (a) emits no CORS headers, (b) 403s any
 // request that carries a browser `Origin` header, and (c) 405s the CORS preflight
 // (it does not implement OPTIONS). This Worker makes the browser think it is talking

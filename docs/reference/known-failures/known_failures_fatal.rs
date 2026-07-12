@@ -1,3 +1,8 @@
+// REFERENCE COPY — the pinned gerna/smuni known-miscompilation backlog, carried
+// from nibli/nibli-engine/tests/known_failures_fatal.rs @ 6c59357c95c8. Written against
+// nibli-engine APIs, so it does NOT compile here; see TODO.md for the item that
+// re-expresses these as gerna/smuni-level regression tests.
+
 //! FIXED former process-aborting regression — now a normal, safe-to-run test.
 //!
 //! Bug (panel finding, todo.md: HIGH, FIXED 2026-06-10): "du-equivalence fallback

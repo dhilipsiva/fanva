@@ -1,3 +1,7 @@
+> **Provenance:** the nibli-side tracker of the `nibli-fanva` crate (this repo's
+> `fanva/`), carried from nibli @ 6c59357c95c8. All engine phases were done at
+> extraction; still-open residue was folded into the repo-root `TODO.md`.
+
 # nibli-fanva — backlog (absorbed into the Transparency Triad)
 
 Workspace-adapted from the standalone `fanva` research backlog. The original

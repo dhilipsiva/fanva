@@ -1,10 +1,10 @@
 # fanva-proxy
 
 A tiny Cloudflare Worker that fronts the **jbotci** MCP endpoint
-(`https://jbotci.app/mcp`) so the [`nibli-fanva`](../nibli-fanva) browser client
-(wasm/gloo-net) can reach it. Optional: the whole Transparency Triad stays
-serverless by default; this proxy only matters when a user wants the agentic
-translator to call jbotci's dictionary/grammar tools mid-translation.
+(`https://jbotci.app/mcp`) so the [`fanva`](../fanva) browser client
+(wasm/gloo-net) can reach it. Optional: the translator stays serverless by
+default; this proxy only matters when a user wants the agentic translator to
+call jbotci's dictionary/grammar tools mid-translation.
 
 ## Why a proxy is needed
 
@@ -32,7 +32,7 @@ It also ships with an IP-keyed rate-limit binding and a request-body size cap.
 ## Use it
 
 1. Deploy it (see [DEPLOY.md](DEPLOY.md)) → `https://fanva-proxy.<acct>.workers.dev`.
-2. In the nibli-ui settings modal, set the **jbotci proxy URL** to that Worker URL
+2. In the fanva-ui settings modal, set the **jbotci proxy URL** to that Worker URL
    (e.g. `https://fanva-proxy.<acct>.workers.dev/mcp`). Leaving it blank keeps
    jbotci off — the translator then runs on the local gates only (`degraded`).
 

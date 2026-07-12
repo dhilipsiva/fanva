@@ -1,3 +1,8 @@
+// ARCHIVAL COPY — does not compile in this repo: it needs nibli's klaro crate,
+// which stayed behind. Carried from nibli/klaro/src/bin/lojban2klaro.rs @ 6c59357c95c8
+// (the .lojban→.klaro corpus migration bin named in the extraction manifest).
+// Run it from a nibli checkout if ever needed again.
+
 //! lojban2klaro — mechanical `.lojban` → `.klaro` corpus migration.
 //!
 //! Usage: lojban2klaro <src.lojban> <dst.klaro>

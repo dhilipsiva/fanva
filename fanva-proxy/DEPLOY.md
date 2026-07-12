@@ -1,7 +1,7 @@
 # fanva-proxy — Deploy Runbook
 
 A Cloudflare Worker that fronts the jbotci MCP endpoint (`https://jbotci.app/mcp`)
-so the nibli-fanva browser client (wasm/gloo-net) can reach it. It adds CORS,
+so the fanva browser client (wasm/gloo-net) can reach it. It adds CORS,
 synthesizes the preflight jbotci does not implement, and strips the browser
 `Origin`/`Host`/`Referer` so jbotci sees a plain server-to-server call. The
 upstream is **hardcoded** — never user-controllable — so this is a fixed reverse
@@ -94,7 +94,7 @@ CLOUDFLARE_ACCOUNT_ID=<your-account-id> npm run deploy
 
 ## 6. Point the client at it
 
-Set the nibli-ui **jbotci proxy URL** (settings modal) to the Worker URL, e.g.
+Set the fanva-ui **jbotci proxy URL** (settings modal) to the Worker URL, e.g.
 `https://fanva-proxy.<acct>.workers.dev/mcp`. The proxy ignores the path and
 always targets jbotci's fixed `/mcp`, so a trailing `/` also works. Blank = jbotci
 off (local gates only).

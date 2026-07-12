@@ -1,3 +1,8 @@
+// REFERENCE COPY — the pinned gerna/smuni known-miscompilation backlog, carried
+// from nibli/nibli-engine/tests/known_failures.rs @ 6c59357c95c8. Written against
+// nibli-engine APIs, so it does NOT compile here; see TODO.md for the item that
+// re-expresses these as gerna/smuni-level regression tests.
+
 //! Known-failure backlog — surface-reachable defects from the 2026-06-10 deep
 //! code-review panel (see `todo.md` → "Deep code-review panel findings" and
 //! `code-review-panel-2026-06-10.json`).

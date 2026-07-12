@@ -1,3 +1,8 @@
+> **Provenance:** the genesis research prompt that produced the original fanva
+> TODO backlog, carried from `nibli/fanva/PROMPT.md` at nibli @ 6c59357c95c8.
+> Historical — it predates the local-camxes pivot (it still describes gate 3 as
+> remote jbotci `gentufa`) and the extraction into this repo.
+
 # Research & Planning Prompt — Agentic Lojban Translator with first-class jbotci integration
 
 > **How to use this file:** Paste the prompt below into a capable research/coding agent

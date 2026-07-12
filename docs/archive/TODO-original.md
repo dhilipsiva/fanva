@@ -1,3 +1,8 @@
+> **Provenance:** this repo's original from-scratch build plan (pre-extraction).
+> Superseded 2026-07-13: the translator was extracted ready-made from nibli
+> (see `NIBLI_REV`) instead of being rebuilt from this backlog. Kept for the
+> ground-truth research notes in its header.
+
 # TODO.md — Agentic English→Lojban Translator (`fanva`) with jbotci MCP Integration
 
 > This is a phased, execute-item-by-item implementation backlog. Do NOT skip the "Ground truth" header — later items reference it. Items marked **unverified-pending-local-probe** require a live probe or a pinned-rev clone the planning agent could not perform; each is written as a concrete "run THIS / look for THIS" step. Where live research contradicted the source spec, the change is flagged inline with **[CORRECTION]**.

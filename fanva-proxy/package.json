@@ -1,7 +1,7 @@
 {
   "name": "fanva-proxy",
   "version": "1.0.0",
-  "description": "CORS-adding reverse proxy for the jbotci MCP endpoint (nibli-fanva browser client).",
+  "description": "CORS-adding reverse proxy for the jbotci MCP endpoint (fanva browser client).",
   "type": "module",
   "private": true,
   "scripts": {
