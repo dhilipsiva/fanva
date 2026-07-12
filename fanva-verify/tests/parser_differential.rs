@@ -1,4 +1,4 @@
-//! CI gate: the gerna ↔ camxes parse-differential (see `nibli_verify::parser_diff`).
+//! CI gate: the gerna ↔ camxes parse-differential (see `fanva_verify::parser_diff`).
 //!
 //! One-directional by design: every sentence gerna ACCEPTS must parse under the
 //! official Lojban grammar (ilmentufa camxes). gerna implements a fragment, so a
@@ -11,8 +11,8 @@
 
 use std::collections::HashSet;
 
-use nibli_verify::parser_diff::{self, CamxesConfig, ParseOutcome};
-use nibli_verify::{corpora, generator};
+use fanva_verify::parser_diff::{self, CamxesConfig, ParseOutcome};
+use fanva_verify::{corpora, generator};
 
 /// Seeds per generator for the random batch; override with
 /// `NIBLI_VERIFY_PARSER_RANDOM_COUNT`. Each seed contributes a whole case's lines

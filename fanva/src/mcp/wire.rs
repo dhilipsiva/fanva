@@ -30,7 +30,7 @@ pub fn initialize_params() -> Value {
     json!({
         "protocolVersion": PROTOCOL_VERSION,
         "capabilities": {},
-        "clientInfo": { "name": "nibli-fanva", "version": "0.1.0" },
+        "clientInfo": { "name": "fanva", "version": "0.1.0" },
     })
 }
 

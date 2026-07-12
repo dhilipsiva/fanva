@@ -1,7 +1,6 @@
 //! The semantic verification turn — the fourth, non-deterministic check.
 //!
-//! The deterministic gates (klaro → smuni → round-trip in Klaro mode;
-//! gerna → smuni → camxes in legacy Lojban mode) prove a candidate is
+//! The deterministic gates (gerna → smuni → camxes) prove a candidate is
 //! *well-formed*; they cannot prove it *means* what the source says. Models
 //! routinely emit syntactically valid KB text with wrong semantics — misresolved anaphora,
 //! overflowed bridi places, attitudinals used as commands (`ei` for "you
@@ -26,7 +25,6 @@
 
 use crate::gates::{self, GateError};
 use nibli_render::{Register, render_logic_buffer};
-use nibli_types::lang::Language;
 
 /// The validator's system prompt: an independent judge of MEANING only.
 /// Language-neutral prose (the CLAIMS line is the IR-level `nibli_render`
@@ -51,18 +49,18 @@ number and stating what the line claims versus what the source says. No other te
 
 /// Per-line back-translation of a gate-clean KB: `(kb_line, english_claims)`
 /// for every non-empty, non-comment line (the same line discipline as
-/// `gates::validate_kb`). Recompiles via `gates::local_gates` in the KB
-/// language — cheap, and the buffer was discarded by validation; the rendered
-/// gloss is IR-level and therefore language-free. Errors are defensively
-/// propagated but should be impossible for text that just passed the gates.
-pub fn back_translation(lang: Language, kb_text: &str) -> Result<Vec<(String, String)>, GateError> {
+/// `gates::validate_kb`). Recompiles via `gates::local_gates` — cheap, and the
+/// buffer was discarded by validation; the rendered gloss is IR-level. Errors
+/// are defensively propagated but should be impossible for text that just
+/// passed the gates.
+pub fn back_translation(kb_text: &str) -> Result<Vec<(String, String)>, GateError> {
     let mut out = Vec::new();
     for raw in kb_text.lines() {
         let line = raw.trim();
         if line.is_empty() || line.starts_with('#') {
             continue;
         }
-        let buf = gates::local_gates(lang, line)?;
+        let buf = gates::local_gates(line)?;
         out.push((line.to_string(), render_logic_buffer(&buf, Register::Spec)));
     }
     Ok(out)
@@ -107,11 +105,8 @@ mod tests {
 
     #[test]
     fn back_translation_renders_each_line() {
-        let back = back_translation(
-            Language::Lojban,
-            "la .adam. cu gerku\n# comment\n\nla .betis. cu mlatu",
-        )
-        .unwrap();
+        let back =
+            back_translation("la .adam. cu gerku\n# comment\n\nla .betis. cu mlatu").unwrap();
         assert_eq!(back.len(), 2);
         assert_eq!(back[0].0, "la .adam. cu gerku");
         assert!(
@@ -119,16 +114,6 @@ mod tests {
             "claims must mention the participant: {}",
             back[0].1
         );
-    }
-
-    #[test]
-    fn back_translation_is_language_free_at_the_ir_level() {
-        // Twin claims through the two front-ends must produce the identical
-        // engine reading — the gloss renders the LogicBuffer, not the surface.
-        let k = back_translation(Language::Klaro, "dog(Adam).").unwrap();
-        let l = back_translation(Language::Lojban, "la .adam. cu gerku").unwrap();
-        assert_eq!(k.len(), 1);
-        assert_eq!(k[0].1, l[0].1, "IR-level gloss must be front-end-agnostic");
     }
 
     #[test]

@@ -3,9 +3,9 @@
 //! Cross-validates the SHIPPED `smuni-dictionary` arities (the values that
 //! drive event decomposition and strict-mode arity rejection) against
 //! Predilex, an independent human-curated CC0 thesaurus of sememes-as-
-//! predicates (vendored + pinned in `nibli-verify/vendor/predilex/`).
+//! predicates (vendored + pinned in `fanva-verify/vendor/predilex/`).
 //!
-//! THE INVARIANT IS A LOWER BOUND (see `nibli_verify::predilex`'s module doc):
+//! THE INVARIANT IS A LOWER BOUND (see `fanva_verify::predilex`'s module doc):
 //! a Predilex mapping proves the places it uses exist, never that no more do —
 //! the sememes are systematically coarser than Lojban's place structures. So
 //! the gate flags UNDERCOUNTS only: `dictionary arity < Predilex bound` means
@@ -29,7 +29,7 @@
 //! json file's presence at run time could lie about a stale build, so the mode
 //! detector reads `DICTIONARY.len()` — the same artifact under test.
 
-use nibli_verify::predilex::{self, RowJudgment, SkipReason};
+use fanva_verify::predilex::{self, RowJudgment, SkipReason};
 use std::collections::BTreeMap;
 
 /// Full-build detector: the fallback PHF has ~140 entries, the full lensisku

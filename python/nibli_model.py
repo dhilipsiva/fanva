@@ -96,19 +96,19 @@ def format_for_sft(pairs):
     return formatted
 
 
-# ─── Validation via nibli-validate ────────────────────────────────
+# ─── Validation via fanva-validate ────────────────────────────────
 
 def find_validate_binary():
-    """Find the nibli-validate binary."""
-    for candidate in ["target/debug/nibli-validate", "target/release/nibli-validate"]:
+    """Find the fanva-validate binary."""
+    for candidate in ["target/debug/fanva-validate", "target/release/fanva-validate"]:
         if os.path.isfile(candidate):
             return candidate
-    print("[WARN] nibli-validate not found. Run: just build-validate", file=sys.stderr)
+    print("[WARN] fanva-validate not found. Run: just build-validate", file=sys.stderr)
     return None
 
 
 def validate_lojban_batch(sentences, validate_binary=None):
-    """Validate Lojban sentences through nibli-validate subprocess.
+    """Validate Lojban sentences through the fanva-validate subprocess.
 
     Returns list of bools (True = gerna accepts it).
     """
@@ -119,8 +119,8 @@ def validate_lojban_batch(sentences, validate_binary=None):
 
     input_text = "\n".join(sentences) + "\n"
     try:
-        # --lang lojban: nibli-validate follows the engine default (Klaro
-        # since THE FLIP), and this pipeline is Lojban.
+        # --lang lojban is accepted for compatibility; fanva-validate is
+        # Lojban-only anyway.
         result = subprocess.run(
             [validate_binary, "--lang", "lojban"],
             input=input_text,
@@ -581,7 +581,7 @@ def compute_semantic_match(predictions, references, gerna_valid, validate_binary
         return sum(gerna_valid), sum(gerna_valid)
 
     # Batch: send "pred\nref\npred\nref\n..." and compare assertion results.
-    # Since nibli-validate resets KB between lines, each gets independent validation.
+    # Since fanva-validate validates each line independently, each gets independent validation.
     # For FOL comparison, we would need a more sophisticated approach.
     # For now, count gerna-valid as the total and exact matches within those.
     matches = sum(

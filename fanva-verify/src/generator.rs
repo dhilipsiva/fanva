@@ -8,7 +8,8 @@
 //! arbiter, so even a case that somehow compiled outside the fragment is skipped, never
 //! mis-judged.
 
-/// One generated case: owned strings (unlike the curated `&'static` [`crate::Case`]).
+/// One generated case: owned strings (unlike nibli-verify's curated `&'static` `Case`,
+/// which stayed behind with the verdict oracles).
 pub struct GeneratedCase {
     pub name: String,
     pub kb: Vec<String>,

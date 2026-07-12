@@ -4,7 +4,7 @@ generate_training_data.py — Gerna-validated synthetic Lojban training data.
 
 The fine-tuning flywheel:
   1. Claude Sonnet generates English→Lojban translation batches
-  2. nibli-validate subprocess validates each Lojban sentence (gerna + smuni)
+  2. fanva-validate subprocess validates each Lojban sentence (gerna + smuni)
   3. Valid pairs written to JSONL output
 
 Domains (balanced sampling):
@@ -171,15 +171,15 @@ def call_anthropic(client, domain_key, domain_info, count):
 
 
 def validate_batch(pairs, validate_binary):
-    """Validate Lojban sentences through nibli-validate subprocess."""
+    """Validate Lojban sentences through the fanva-validate subprocess."""
     if not pairs:
         return []
 
     lojban_lines = "\n".join(p["lojban"] for p in pairs) + "\n"
 
     try:
-        # --lang lojban: nibli-validate follows the engine default (Klaro
-        # since THE FLIP), and this pipeline is Lojban.
+        # --lang lojban is accepted for compatibility; fanva-validate is
+        # Lojban-only anyway.
         result = subprocess.run(
             [validate_binary, "--lang", "lojban"],
             input=lojban_lines,
@@ -192,7 +192,7 @@ def validate_batch(pairs, validate_binary):
         return []
     except FileNotFoundError:
         print(f"  [ERROR] Validation binary not found: {validate_binary}", file=sys.stderr)
-        print("  Run: just build-native", file=sys.stderr)
+        print("  Run: just build-validate", file=sys.stderr)
         sys.exit(1)
 
     # Parse JSON output lines (skip non-JSON lines like "Native engine ready", [Skolem] etc.)
@@ -231,29 +231,29 @@ def validate_batch(pairs, validate_binary):
 
 
 def find_validate_binary():
-    """Find the nibli-validate binary."""
+    """Find the fanva-validate binary."""
     # Check common locations
     candidates = [
-        "target/debug/nibli-validate",
-        "target/release/nibli-validate",
+        "target/debug/fanva-validate",
+        "target/release/fanva-validate",
     ]
     for c in candidates:
         if os.path.isfile(c):
             return c
 
     # Try building it
-    print("[INFO] Building nibli-validate...", file=sys.stderr)
+    print("[INFO] Building fanva-validate...", file=sys.stderr)
     result = subprocess.run(
-        ["cargo", "build", "-p", "nibli", "--bin", "nibli-validate"],
+        ["cargo", "build", "-p", "fanva", "--bin", "fanva-validate"],
         capture_output=True,
         text=True,
     )
     if result.returncode == 0:
-        if os.path.isfile("target/debug/nibli-validate"):
-            return "target/debug/nibli-validate"
+        if os.path.isfile("target/debug/fanva-validate"):
+            return "target/debug/fanva-validate"
 
-    print("[ERROR] Could not find or build nibli-validate binary", file=sys.stderr)
-    print("Run: cargo build -p nibli --bin nibli-validate", file=sys.stderr)
+    print("[ERROR] Could not find or build fanva-validate binary", file=sys.stderr)
+    print("Run: cargo build -p fanva --bin fanva-validate", file=sys.stderr)
     sys.exit(1)
 
 
