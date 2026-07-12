@@ -43,8 +43,12 @@ fmt:
 fmt-check:
     cargo fmt --all -- --check
 
+# Strict on the fanva-authored crates; the vendored upstream crates (gerna,
+# smuni, dictionaries, nibli-*) are kept byte-close to nibli for diffability,
+# so their pre-existing lints are reported, not denied.
 clippy:
-    cargo clippy --workspace --all-targets -- -D warnings
+    cargo clippy -p fanva -p fanva-ui -p fanva-verify --all-targets -- -D warnings
+    cargo clippy --workspace --all-targets
 
 # Build the batch validator the python flywheel subprocesses.
 build-validate:
