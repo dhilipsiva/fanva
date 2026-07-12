@@ -1,4 +1,4 @@
-# Rust build output (unanchored so nested workspace crates are covered too)
+# Rust build output (unanchored so nested workspace crates + fuzz/ are covered too)
 target/
 
 # Nix / direnv
@@ -11,10 +11,24 @@ result-*
 .dev.vars
 .env
 
-# Planned build outputs / fetched data (see TODO.md Phase 0)
+# Web build output / npm
 dist/
 node_modules/
+
+# Fetched data: lensisku bulk export consumed by smuni-dictionary/build.rs
+# (`just fetch-dict`; CC-BY-SA, 10MB — never commit)
 dictionary-en.json
+dictionary-en.json:Zone.Identifier
+
+# Fuzzing state (`just fuzz-seed` regenerates the corpus from the .lojban corpora)
+fuzz/corpus/
+fuzz/artifacts/
+
+# Python flywheel outputs + tooling
+data/
+models/
+__pycache__/
+.venv/
 
 *.log
 
