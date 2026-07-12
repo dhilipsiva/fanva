@@ -1,6 +1,27 @@
-[package]
-name = "fanva"
-version = "0.1.0"
-edition = "2024"
+# fanva — agentic English→Lojban translator, extracted from github.com/dhilipsiva/nibli
+# at the rev recorded in NIBLI_REV. The gate-crate closure (gerna, smuni, smuni-dictionary,
+# nibli-types, nibli-protocol, nibli-render) is vendored whole so every crate resolves the
+# ONE in-repo nibli-types (two copies would mean two incompatible AstBuffer types).
+[workspace]
+resolver = "2"
+members = [
+    "fanva",
+    "fanva-ui",
+    "fanva-verify",
+    "gerna",
+    "smuni",
+    "smuni-dictionary",
+    "nibli-types",
+    "nibli-protocol",
+    "nibli-render",
+]
+# fuzz is a cargo-fuzz package with its own lockfile; fanva-proxy is a JS Cloudflare Worker.
+exclude = ["fuzz", "fanva-proxy"]
 
-[dependencies]
+# Replicated from nibli's workspace root — governs the release wasm bundle.
+[profile.release]
+opt-level = 3
+lto = "fat"
+codegen-units = 1
+panic = "abort"
+strip = true
