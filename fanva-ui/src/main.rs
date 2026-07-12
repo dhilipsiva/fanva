@@ -284,7 +284,8 @@ fn App() -> Element {
         {
             e.prevent_default();
             spawn(async move {
-                let _ = document::eval("document.getElementById('lojban-file-input').click()").await;
+                let _ =
+                    document::eval("document.getElementById('lojban-file-input').click()").await;
             });
         }
     };

@@ -49,6 +49,7 @@
             pkgs.nodejs       # wrangler/npm + runs the ilmentufa camxes CLI (verify-parser)
             pkgs.just         # recipe runner (see Justfile)
             pkgs.wasm-pack    # `just test-fanva-wasm` (wasm-bindgen tests under node)
+            pkgs.binaryen     # wasm-opt — `dx build --release` optimizes the bundle with it
             pkgs.cargo-fuzz   # `just fuzz-parse` (with the pinned nightly below)
             pkgs.python3      # the Lojban flywheel (python/) + `just fuzz-seed`
             pkgs.pkg-config   # for native cargo-test deps that link C libs

@@ -1068,10 +1068,7 @@ dependencies = [
  "dioxus",
  "fanva",
  "gerna",
- "gloo-net",
  "nibli-render",
- "nibli-types",
- "serde_json",
  "smuni",
  "smuni-dictionary",
 ]

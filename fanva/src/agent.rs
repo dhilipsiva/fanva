@@ -356,13 +356,7 @@ mod tests {
         let mcp = McpClient::new("");
         let cfg = LlmConfig::new(Provider::Anthropic);
         let out = futures::executor::block_on(translate_agentic(
-            &chat,
-            &validator,
-            &mcp,
-            &cfg,
-            source,
-            max,
-            4,
+            &chat, &validator, &mcp, &cfg, source, max, 4,
         ));
         (out, chat, validator)
     }
