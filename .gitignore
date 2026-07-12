@@ -1,0 +1,22 @@
+# Rust build output (unanchored so nested workspace crates are covered too)
+target/
+
+# Nix / direnv
+result
+result-*
+.direnv/
+
+# Cloudflare Worker (fanva-proxy) local state + secrets — never commit
+.wrangler/
+.dev.vars
+.env
+
+# Planned build outputs / fetched data (see TODO.md Phase 0)
+dist/
+node_modules/
+dictionary-en.json
+
+*.log
+
+# Claude Code per-machine settings (personal permission grants)
+.claude/settings.local.json
