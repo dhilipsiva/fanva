@@ -69,6 +69,12 @@ fn gerna_accepted_sentences_are_camxes_parseable() {
         "lo terdi cu na se tarmi gi'e kunti",
         "da klama gi'e citka",
         "ro lo gerku cu klama gi'e citka",
+        // …incl. a quantified-head CHAIN and quantified-head gi'enai (the shared-head
+        // node's chain + right-negation paths), and a negative conjunct via a
+        // sentence `.i je` with a bridi-negated right operand (P ∧ ¬Q).
+        "lo prenu cu bajra gi'e citka gi'e sipna",
+        "lo gerku cu barda gi'enai bajra",
+        "mi klama .i je mi na citka",
         "mi klama gi'e na citka",
         "mi na klama gi'e na citka",
         "mi klama gi'e citka gi'e sipna",

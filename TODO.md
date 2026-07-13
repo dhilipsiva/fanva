@@ -44,15 +44,16 @@ when it lands.
 
 ## gerna / smuni backlog *(from nibli)*
 
-- **Determinism corpus: add GIhA + negative-conjunct lines** —
-  `determinism-corpus.lojban` predates both; add a `gi'e` chain, a `gi'enai`
-  line, and a `P .i je na Q` sequence so the corpus (a parse-differential and
-  fuzz-seed input here) pins the new shapes. The GIhA shared-head fix has landed
-  (quantified/description heads now compile to ONE shared witness — a new
-  `Sentence::SharedHead` node, pinned by smuni's `giha_shared_head_*` tests), so
-  these lines would pin its runtime verdicts. Follow-ups the fix left open:
-  connected sumti in a shared head, and a BAI modal / connected sumti in a
-  shared-head tail (all currently fail-closed).
+- **GIhA shared-head: handle the fail-closed corners** — the `Sentence::SharedHead`
+  fix (quantified/description-head GIhA binds ONE witness) fails closed on three
+  sub-shapes it doesn't model: a connected sumti (`.e`/`.a`) in the shared HEAD
+  (rejected in gerna `head_has_connective`), and a BAI modal or connected sumti in a
+  shared-head TAIL (rejected in smuni `compile_shared_head`/`build_giha_branch`).
+  Handle them (distribute the shared-head unit / model the modal) to lift the last
+  `.i je` restate requirement. Low priority — all fail closed (sound, not a silent
+  wrong answer). *(The determinism-corpus GIhA + negative-conjunct lines are now
+  seeded there for the fuzzer, and pinned under camxes in
+  `fanva-verify/tests/parser_differential.rs` + gerna's negative-conjunct test.)*
 - **Port the known-failures backlog into compiled tests** — the pinned
   gerna/smuni miscompilation cases carried from nibli
   (`docs/reference/known-failures/`) are written against nibli-engine APIs;

@@ -452,6 +452,42 @@ fn giha_quantified_head_parses_to_shared_head_full_pipeline() {
     }
 }
 
+#[test]
+fn sentence_je_with_bridi_negated_right_operand() {
+    // A NEGATIVE CONJUNCT `P .i je Q` where the right conjunct is bridi-negated
+    // (`mi na citka`) — i.e. P ∧ ¬Q. The `na` binds the RIGHT bridi, not the
+    // connective: `.i je na` is NOT connective-level right-negation (that is the
+    // fused `.i jenai`). Pins that gerna parses this exact shape — a gerna-reject
+    // would be silently skipped by the camxes parse-differential, so assert it here.
+    let arena = Bump::new();
+    let p = parse("mi klama .i je mi na citka", &arena);
+    match &p.sentences[0] {
+        Sentence::Connected {
+            connective:
+                SentenceConnective::Afterthought {
+                    left_negated: false,
+                    connective: Connective::Je,
+                    right_negated: false,
+                },
+            left,
+            right,
+        } => {
+            assert!(
+                matches!(&**left, Sentence::Simple(b) if !b.negated),
+                "left conjunct must be a plain bridi, got {left:?}"
+            );
+            match &**right {
+                Sentence::Simple(b) => assert!(
+                    b.negated,
+                    "right conjunct must carry the bridi negation (the `na`)"
+                ),
+                other => panic!("right conjunct must be a Simple bridi, got {other:?}"),
+            }
+        }
+        other => panic!("expected `.i je` Afterthought(Je) joining two bridi, got {other:?}"),
+    }
+}
+
 // ─── Solid `.i`+JA sentence connectives (lexer split pass) ───────
 
 #[test]

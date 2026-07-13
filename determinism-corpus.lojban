@@ -48,6 +48,21 @@ la .bel. cu mlatu
 ro lo prenu poi na mlatu cu melbi
 ? la .adam. cu melbi
 # => TRUE
+
+# ── GIhA bridi-tails + negative conjuncts (parse/fuzz shapes) ──
+# Seeds `just fuzz-seed` so the fuzzer exercises the GIhA `SharedHead` parser and
+# sentence-connective negation. This file's cross-runtime verdict harness retired
+# at gerna retirement, so these are plain gerna+camxes-valid lines with no `# =>`
+# verdict pin; camxes coverage of these shapes lives in
+# fanva-verify/tests/parser_differential.rs.
+mi klama gi'e citka gi'e sipna
+lo prenu cu bajra gi'e citka gi'e sipna
+ro lo gerku cu danlu gi'e jmive
+da klama gi'e citka
+lo gerku cu barda gi'enai bajra
+mi klama .i je mi na citka
+mi klama .i je na citka
+lo prenu cu bajra .i je lo gerku cu na citka
 ? la .bel. cu melbi
 # => FALSE
 
