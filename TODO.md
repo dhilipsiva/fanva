@@ -70,8 +70,3 @@ when it lands.
   the CORS'd-MCP route IS the integration. (Also: his parser intentionally
   diverges from camxes ~500/22k — SA erasure, ZOI preprocessing — so it could
   never replace the camxes-std gate regardless.)
-- **Full-dictionary CI variant** — CI runs the curated fallback dictionary
-  (175 entries). Consider a scheduled job that runs `just fetch-dict` first so
-  `verify-dict` exercises the full ~10.9k-entry build (the lensisku endpoint
-  401s HEAD requests; plain GET works — and note nibli's book CI used a
-  token-gated URL variant, so verify which endpoint holds).

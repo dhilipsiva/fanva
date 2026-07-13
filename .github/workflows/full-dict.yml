@@ -1,0 +1,70 @@
+# ── Full-dict verify ──────────────────────────────────────────────────────────
+# The ONLY place the Predilex arity gate runs against the FULL ~10.9k-entry
+# lensisku dictionary. Regular CI (ci.yml) checks out fresh with no
+# dictionary-en.json, so smuni-dictionary always compiles in its curated
+# ~175-entry FALLBACK mode, and the full-mode-only assertions in
+# fanva-verify/tests/predilex_differential.rs — the KNOWN_UNDERCOUNTS value-pin
+# and the MIN_CHECKED_FULL >= 150 non-vacuity floor — never run there. This
+# scheduled + manual job closes that gap.
+#
+# NO SECRET: `just fetch-dict` is an unauthenticated plain GET of the public
+# lensisku export. The fetch MUST precede verify-dict — dictionary-en.json is a
+# compile-time PHF input baked in when verify-dict's `cargo test` builds
+# smuni-dictionary. A clean checkout has no prior artifact, so the mtime-cache
+# gotcha (CLAUDE.md) does not apply. Setup mirrors ci.yml.
+name: Full-dict verify
+
+on:
+  schedule:
+    - cron: '17 6 * * 1'    # weekly, Mon 06:17 UTC (off :00 — GitHub throttles top-of-hour crons)
+  workflow_dispatch:
+
+permissions:
+  contents: read            # checkout + build/test only; writes nothing, uses no secret
+
+concurrency:
+  group: full-dict-verify   # don't stack a manual run on the weekly cron (two cold compiles)
+  cancel-in-progress: false
+
+jobs:
+  verify-dict-full:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60      # cold full-workspace compile + the big PHF (magic-nix-cache caches Nix store paths, not target/)
+    steps:
+      - uses: actions/checkout@v4
+      - uses: DeterminateSystems/nix-installer-action@main
+      - uses: DeterminateSystems/magic-nix-cache-action@main
+
+      # Fetch the full lensisku export (unauthenticated public GET, no secret).
+      # One retry absorbs a transient DNS/TLS/5xx blip; a moved or dead endpoint
+      # still fails LOUD — a verification gate should red so the URL gets re-pinned.
+      - name: Fetch full lensisku dictionary
+        shell: bash
+        run: |
+          set -euo pipefail
+          for attempt in 1 2; do
+            if nix develop --command just fetch-dict; then break; fi
+            echo "fetch-dict attempt ${attempt} failed"
+            rm -f dictionary-en.json
+            if [ "${attempt}" = 2 ]; then
+              echo "::error::fetch-dict failed twice — lensisku export endpoint unreachable or moved; re-pin the URL in the Justfile 'fetch-dict' recipe."
+              exit 1
+            fi
+            sleep 15
+          done
+          bytes=$(wc -c < dictionary-en.json)
+          echo "dictionary-en.json: ${bytes} bytes"
+          if [ "${bytes}" -lt 1000000 ]; then
+            echo "::error::dictionary-en.json is ${bytes} bytes (< 1MB) — truncated or non-JSON body; failing fast before the ~10-min build."
+            exit 1
+          fi
+
+      # Build + run the Predilex gate in FULL mode. This is the first cargo
+      # invocation, so smuni-dictionary compiles fresh WITH dictionary-en.json
+      # present => full mode. FANVA_REQUIRE_FULL_DICT makes the test hard-fail if
+      # it somehow compiled in fallback (which otherwise passes vacuously) — so a
+      # green run here is positive proof the full-mode assertions actually ran.
+      - name: verify-dict against the full ~10.9k-entry build
+        env:
+          FANVA_REQUIRE_FULL_DICT: '1'
+        run: nix develop --command just verify-dict

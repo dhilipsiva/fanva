@@ -83,6 +83,21 @@ fn dictionary_arities_cover_predilex_bounds() {
         );
     }
 
+    // CI's `full-dict` workflow sets FANVA_REQUIRE_FULL_DICT so a build that
+    // silently fell back to the curated dictionary — which otherwise passes this
+    // test VACUOUSLY (it then asserts only the weak fallback floor below) — fails
+    // loudly here instead of a false green. This is the CI gate's positive proof
+    // that the full-mode-only assertions actually ran, decoupled from any log
+    // wording. Local runs and regular CI leave it unset and are unaffected.
+    if std::env::var_os("FANVA_REQUIRE_FULL_DICT").is_some() {
+        assert!(
+            full_mode,
+            "FANVA_REQUIRE_FULL_DICT is set but smuni-dictionary compiled in FALLBACK \
+             mode ({dict_size} entries < {FULL_DICT_MIN}); run `just fetch-dict` (and, \
+             locally, `cargo clean -p smuni-dictionary`) before verify-dict."
+        );
+    }
+
     // Row-level skip tallies (bounds are per-word; skips are per-row).
     let mut skip_tally: BTreeMap<&'static str, usize> = BTreeMap::new();
     for (_, judgment) in predilex::judged_rows() {
