@@ -70,9 +70,6 @@ when it lands.
   the CORS'd-MCP route IS the integration. (Also: his parser intentionally
   diverges from camxes ~500/22k — SA erasure, ZOI preprocessing — so it could
   never replace the camxes-std gate regardless.)
-- **Prune the Klaro-era CSS** — `fanva-ui/assets/style.css` (69 KB) was
-  carried wholesale from nibli-ui; the KB/query/proof/lint classes are dead in
-  fanva. Prune once the UI surface settles (cosmetic; no rush).
 - **Full-dictionary CI variant** — CI runs the curated fallback dictionary
   (175 entries). Consider a scheduled job that runs `just fetch-dict` first so
   `verify-dict` exercises the full ~10.9k-entry build (the lensisku endpoint

@@ -177,46 +177,6 @@
   --verdict-unknown-bg: color-mix(in oklab, var(--verdict-unknown) 14%, transparent);
   --verdict-limit-bg:   color-mix(in oklab, var(--verdict-limit)   14%, transparent);
 
-  /* ── PROOF RULE TYPES ── the left-border + glyph color of each node ────
-     Families read as a teachable system:
-       blue = you gave it · green = the engine affirmed it ·
-       violet = structural bookkeeping · ember = a witness found ·
-       amber = careful (epistemic) · red = it failed · gray = scaffolding.
-     Same-hue pairs (derived/check, ref/conjunction) are split by glyph.     */
-  --proof-asserted:    var(--sky-500);      /* asserted-fact          ⊢  solid  */
-  --proof-derived:     var(--phosphor-500); /* derived-by-rule        →  solid  */
-  --proof-check:       var(--phosphor-300); /* consistency-check      ⊨  solid  */
-  --proof-ref:         var(--quanta-500);   /* memoized-reference     ↺  solid  */
-  --proof-conjunction: var(--quanta-300);   /* conjunction            ∧  solid  */
-  --proof-exists:      var(--ember-300);    /* existential-witness    ∃  solid  */
-  --proof-negation:    var(--amber-500);    /* negation-as-failure    ¬  solid  */
-  --proof-failed:      var(--crimson-500);  /* failed-branch          ✗  DASHED */
-  --proof-role:        var(--fg-muted);     /* role/event scaffolding ⋯  DOTTED · muted/collapsed */
-
-  /* ── CONNECTION STATUS ── 5 states, 5 distinct hues + dot shape ───────── */
-  --status-ready:        var(--phosphor-500); /* ●  ready              */
-  --status-checking:     var(--sky-500);      /* ◐  checking (pulse)   */
-  --status-waiting:      var(--amber-500);    /* ◔  waiting for peer   */
-  --status-notready:     var(--fg-faint);     /* ○  not ready (idle)   */
-  --status-disconnected: var(--crimson-500);  /* ✕  disconnected       */
-
-  /* ── GOSSIP STANCES ── 4 evidentials; also the stacked stance-bar ─────── */
-  --stance-deduced:  var(--phosphor-500);   /* ja'o · deduced   */
-  --stance-expected: var(--sky-500);        /* ba'a · expected  */
-  --stance-opinion:  var(--quanta-500);     /* pe'i · opinion   */
-  --stance-hearsay:  var(--amber-500);      /* ti'e · hearsay   */
-
-  /* ── ERROR CLASSES ── 5 + generic, each its own icon + tint ───────────── */
-  --error-syntax:    var(--crimson-500);    /* ⊗  broke the grammar          */
-  --error-semantic:  var(--amber-500);      /* ≠  parsed, ill-formed meaning */
-  --error-reasoning: var(--quanta-500);     /* ⊥  logical dead-end           */
-  --error-backend:   var(--sky-500);        /* ⇄  infra / peer / transport   */
-  --error-limit:     var(--ember-500);      /* ◴  resource exceeded          */
-  --error-generic:   var(--fg-muted);       /* !  unclassified               */
-
-  /* ── ENVELOPE FLAGS ───────────────────────────────────────────────────── */
-  --flag-quarantine: var(--amber-500);      /* ⚠  held, not trusted */
-  --flag-retracted:  var(--crimson-500);    /* ⊖  withdrawn (dimmed + strike) */
 }
 
 /* ============================================================================
@@ -250,19 +210,6 @@
   --verdict-true:    #0F9E6C; --verdict-false:  #D62A3C;
   --verdict-unknown: #B5791A; --verdict-limit:  #C8401A;
 
-  --proof-asserted:    #1A82D6; --proof-derived:  #0E8F60; --proof-check: #16A877;
-  --proof-ref:         #6A4DE6; --proof-conjunction:#8B6CF0; --proof-exists:#C8401A;
-  --proof-negation:    #B5791A; --proof-failed:   #D62A3C; --proof-role:  #6E6E7A;
-
-  --status-ready:#0F9E6C; --status-checking:#1A82D6; --status-waiting:#B5791A;
-  --status-notready:#8A8A95; --status-disconnected:#D62A3C;
-
-  --stance-deduced:#0F9E6C; --stance-expected:#1A82D6; --stance-opinion:#6A4DE6; --stance-hearsay:#B5791A;
-
-  --error-syntax:#D62A3C; --error-semantic:#B5791A; --error-reasoning:#6A4DE6;
-  --error-backend:#1A82D6; --error-limit:#C8401A; --error-generic:#6E6E7A;
-
-  --flag-quarantine:#B5791A; --flag-retracted:#D62A3C;
 }
 
 /* Honor the OS reduced-motion preference everywhere. */

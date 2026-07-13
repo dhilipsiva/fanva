@@ -1,18 +1,17 @@
 /* ============================================================================
-   nibli — STYLESHEET
-   QUINE Design System, applied. Drop-in for the Dioxus app: link tokens.css
-   first, then this file. Every value references a token from tokens.css —
-   no raw hex, no magic numbers beyond layout geometry.
+   fanva-ui — STYLESHEET  (carved from nibli-ui; QUINE Design System applied)
+   Drop-in for the Dioxus app: link tokens.css first, then this file. Every
+   value references a token from tokens.css — no raw hex, no magic numbers
+   beyond layout geometry.
+
+   The reasoning-UI sections (proof panel, query row, output log, KB status,
+   P2P network) were pruned in the nibli→fanva carve — fanva is a translator.
 
    Map of contents:
-     0  Reset & base                       7  Proof panel (the signature)
-     1  App shell / layout                  8  Query row + status badge
-     2  Tabs                                9  Output log
-     3  Source tab                         10  Network — gossip + summary
-     4  Lojban tab + KB status             11  Network — agents
-     5  Back-translation                   12  Network — events / envelopes
-     6  Buttons (shared)                   13  Network — contradictions
-                                           14  kbd hints, keyframes, scrollbars
+     0  Reset & base             4  Lojban tab
+     1  App shell / layout        5  Back-translation
+     2  Tabs                     14  kbd hints, keyframes, scrollbars
+     3  Source tab                —  LLM modal · agentic trace · tersmu view
    ========================================================================== */
 
 /* ── 0 · RESET & BASE ─────────────────────────────────────────────────── */
@@ -34,12 +33,11 @@ body {
 :focus-visible { outline: none; box-shadow: var(--ring); border-radius: var(--r-sm); }
 
 /* A shared eyebrow/label voice — the brand's connective tissue.            */
-.kbd-hint, .panel-header, .output-log-header, .proof-why-label,
-.kb-status-summary { font-feature-settings: "ss01"; }
+.kbd-hint { font-feature-settings: "ss01"; }
 
 /* ── 1 · APP SHELL / LAYOUT ───────────────────────────────────────────── */
-/* Full-viewport instrument: a main row of two panels over a wide query row.
-   Panels sit as cards on the sunken void frame.                            */
+/* Full-viewport instrument: the tab column fills the shell between the slim
+   masthead and footer, sitting as a card on the sunken void frame.         */
 .app {
   height: 100vh;
   display: grid;
@@ -183,15 +181,9 @@ body {
 .app-footer__star:focus-visible { outline: none; box-shadow: var(--ring); }
 .app-footer__star-icon { color: var(--accent); font-size: 12px; line-height: 1; }
 
-.main-row {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));  /* equal-width, fluid */
-  gap: var(--s3);
-  min-height: 0;            /* allow children to scroll, not the page       */
-}
 
-/* The two columns are instrument panels: card surface, hairline, tight radius. */
-.col-tabs, .col-proof {
+/* The tab column is an instrument panel: card surface, hairline, tight radius. */
+.col-tabs {
   display: flex;
   flex-direction: column;
   min-height: 0;
@@ -241,13 +233,6 @@ body {
 }
 .tab.active { color: var(--text-strong); }
 .tab.active::after { transform: scaleX(1); }
-.tab__glyph { font-size: var(--fs-code); color: var(--symbol); opacity: .85; }
-.tab.active .tab__glyph { opacity: 1; }
-.tab__count {
-  font-size: var(--fs-micro); color: var(--text-faint);
-  padding: 1px 5px; border-radius: var(--r-full);
-  background: var(--surface-inset);
-}
 
 /* Scrolling content area shared by every tab. */
 .tab-content {
@@ -321,7 +306,7 @@ body {
 }
 .translate-error::before { content: "⊥"; color: var(--danger); font-size: var(--fs-ui); line-height: 1.2; }
 
-/* ── 4 · LOJBAN TAB + KB STATUS ───────────────────────────────────────── */
+/* ── 4 · LOJBAN TAB ───────────────────────────────────────────────────── */
 .lojban-toolbar { display: flex; align-items: center; gap: var(--s2); flex: none; }
 .lojban-toolbar__sp { flex: 1; }
 
@@ -354,55 +339,6 @@ body {
 .toolbar-btn:active { transform: translateY(1px); }
 .toolbar-btn:focus-visible { box-shadow: var(--ring); }
 
-/* KB status bar — the compiler readout under the editor. */
-.kb-status-bar {
-  flex: none;
-  border: var(--bw-hair) solid var(--border-subtle);
-  border-radius: var(--r-md);
-  background: var(--bg-raised);
-  overflow: hidden;
-}
-.kb-status-summary {                        /* the collapsed one-liner + disclosure */
-  display: flex; align-items: center; gap: var(--s2);
-  width: 100%; padding: var(--s2) var(--s3);
-  font-family: var(--font-mono); font-size: var(--fs-cap); font-weight: var(--w-medium);
-  letter-spacing: var(--track-wide);
-  background: none; border: none; cursor: pointer; text-align: left;
-  color: var(--text-muted);
-}
-.kb-status-summary__caret {
-  font-size: var(--fs-micro); color: var(--text-faint);
-  transition: transform var(--dur-fast) var(--ease-out);
-}
-.kb-status-summary[aria-expanded="true"] .kb-status-summary__caret { transform: rotate(90deg); }
-.kb-status-summary__sp { flex: 1; }
-.kb-status-ok   { color: var(--success); }
-.kb-status-ok::before   { content: "✓ "; }
-.kb-status-warn { color: var(--danger); }
-.kb-status-warn::before { content: "✗ "; }
-
-.kb-status-details { border-top: var(--bw-hair) solid var(--border-subtle); }
-.kb-status-summary[aria-expanded="false"] + .kb-status-details { display: none; }
-.kb-line-results { display: flex; flex-direction: column; }
-.kb-line-result {
-  display: grid; grid-template-columns: 2ch auto 1fr; align-items: baseline; gap: var(--s2);
-  padding: var(--s2) var(--s3);
-  font-family: var(--font-mono); font-size: var(--fs-code); line-height: var(--lh-snug);
-  border-top: var(--bw-hair) solid color-mix(in oklab, var(--border-subtle) 55%, transparent);
-}
-.kb-line-result:first-child { border-top: none; }
-.kb-line-num  { color: var(--text-faint); text-align: right; font-size: var(--fs-cap); }
-.kb-line-icon { font-size: var(--fs-code); line-height: 1.3; }
-.kb-line-text { color: var(--quanta-300); min-width: 0; overflow-wrap: anywhere; }
-.kb-line-err  { grid-column: 3; color: var(--danger); font-size: var(--fs-cap); }
-/* Non-blocking Klaro lint notes (SURFACE_SYNTAX §12) — informational, never amber. */
-.kb-line-note { grid-column: 3; color: var(--text-faint); font-size: var(--fs-cap); }
-.kb-line-ok    .kb-line-icon { color: var(--success); }
-.kb-line-ok    .kb-line-icon::before { content: "✓"; }
-.kb-line-error .kb-line-icon { color: var(--danger); }
-.kb-line-error .kb-line-icon::before { content: "✗"; }
-.kb-line-error { background: color-mix(in oklab, var(--danger) 6%, transparent); }
-.kb-line-error .kb-line-text { color: color-mix(in oklab, var(--quanta-300) 70%, var(--danger)); }
 
 /* ── 5 · BACK-TRANSLATION ─────────────────────────────────────────────── */
 .back-translation {
@@ -423,7 +359,6 @@ body {
 }
 .back-translation__line:last-child { border-bottom: none; padding-bottom: 0; }
 .back-translation__num    { color: var(--text-faint); font-size: var(--fs-cap); }
-.back-translation__lojban { color: var(--quanta-300); }
 .back-translation__gloss  { grid-column: 2; color: var(--text-body); }
 .back-translation__gloss b { color: var(--text-strong); font-weight: var(--w-medium); }
 .back-translation:empty::before,
@@ -433,599 +368,6 @@ body {
   display: block; max-width: 46ch;
 }
 
-/* ── 6 · BUTTONS (shared primary / ghost helpers) ─────────────────────── */
-.gossip-btn, .query-btn { /* primary buttons share the translate-btn recipe */ }
-
-/* ── 7 · PROOF PANEL — the signature surface ──────────────────────────── */
-.proof-panel {
-  flex: 1; min-height: 0; overflow-y: auto;
-  padding: var(--s4);
-  display: flex; flex-direction: column; gap: var(--s4);
-}
-
-/* Empty placeholder + worked example. */
-.proof-placeholder {
-  flex: 1; display: flex; flex-direction: column; justify-content: center; gap: var(--s4);
-  padding: var(--s6);
-  border: var(--bw-hair) dashed var(--border-subtle); border-radius: var(--r-lg);
-  background-image: var(--bg-grid); background-color: var(--bg-sunken);
-  text-align: left;
-}
-.proof-placeholder__glyph { font-size: var(--fs-glyph); color: var(--symbol); opacity: .5; }
-.proof-hint { font-size: var(--fs-ui); color: var(--text-muted); max-width: 42ch; line-height: var(--lh-normal); }
-.proof-hint b { color: var(--text-strong); font-weight: var(--w-medium); }
-.proof-hint-code {
-  display: inline-block; margin-top: var(--s1);
-  padding: var(--s2) var(--s3);
-  font-family: var(--font-mono); font-size: var(--fs-code); color: var(--quanta-300);
-  background: var(--surface-inset); border: var(--bw-hair) solid var(--border-subtle); border-radius: var(--r-sm);
-}
-.proof-hint-code .q { color: var(--accent); }
-
-/* Running pulse. */
-.proof-busy {
-  flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--s4);
-  color: var(--text-muted); font-size: var(--fs-code); letter-spacing: var(--track-wide);
-}
-.proof-busy__glyph { font-size: var(--fs-glyph); color: var(--accent); animation: pulse 1.1s var(--ease-out) infinite; }
-.proof-busy__bar { width: 220px; height: 3px; border-radius: var(--r-full); overflow: hidden; background: var(--surface-inset); }
-.proof-busy__bar::after {
-  content: ""; display: block; width: 40%; height: 100%; border-radius: var(--r-full);
-  background: var(--accent); animation: scan 1.1s var(--ease-in-out) infinite;
-}
-
-/* The plain-English "why" summary — a theorem callout in symbolic violet. */
-.proof-why {
-  display: grid; grid-template-columns: auto 1fr; gap: var(--s2) var(--s3); align-items: start;
-  padding: var(--s4);
-  background: color-mix(in oklab, var(--symbol) 8%, var(--surface-inset));
-  border: var(--bw-hair) solid color-mix(in oklab, var(--symbol) 24%, transparent);
-  border-left: 3px solid var(--symbol);
-  border-radius: var(--r-md);
-}
-.proof-why::before { content: "∴"; grid-row: 1 / span 2; color: var(--quanta-300); font-size: var(--fs-lead); line-height: 1; }
-.proof-why-label {
-  font-family: var(--font-mono); font-size: var(--fs-micro); font-weight: var(--w-semibold);
-  text-transform: uppercase; letter-spacing: var(--track-caps); color: var(--quanta-300);
-}
-.proof-why-text { font-family: var(--font-sans); font-size: var(--fs-ui); line-height: var(--lh-normal); color: var(--text-body); }
-.proof-why-text b { color: var(--text-strong); font-weight: var(--w-semibold); }
-
-/* Proof-level error. */
-.proof-error {
-  display: flex; gap: var(--s3); padding: var(--s4);
-  background: var(--verdict-false-bg);
-  border: var(--bw-hair) solid color-mix(in oklab, var(--danger) 30%, transparent);
-  border-left: 3px solid var(--danger); border-radius: var(--r-md);
-  color: var(--text-body); font-size: var(--fs-code);
-}
-.proof-error::before { content: "⊥"; color: var(--danger); font-size: var(--fs-lead); }
-
-/* The tree well — blueprint grid on the deepest void. */
-.proof-trace, .proof-tree-container {
-  padding: var(--s4) var(--s3);
-  background-color: var(--bg-sunken);
-  background-image: var(--bg-grid);
-  border: var(--bw-hair) solid var(--border-subtle);
-  border-radius: var(--r-md);
-}
-.proof-tree { font-family: var(--font-mono); font-size: var(--fs-code); }
-
-/* A node = a clickable row + an optional indented child group.
-   .proof-row and .proof-disclosure are new wrappers — see MARKUP-CHANGES.   */
-.proof-node { position: relative; }
-.proof-row {
-  display: grid;
-  grid-template-columns: 16px 2ch 1fr auto;
-  align-items: center; gap: var(--s2);
-  padding: var(--s1) var(--s2);
-  border-left: 3px solid var(--proof-role);
-  border-radius: 0 var(--r-sm) var(--r-sm) 0;
-  cursor: default;
-  transition: background var(--dur-fast) var(--ease-out);
-}
-.proof-row:hover { background: color-mix(in oklab, var(--surface-hover) 60%, transparent); }
-.proof-disclosure {
-  grid-column: 1; appearance: none; background: none; border: none; padding: 0; cursor: pointer;
-  color: var(--text-faint); font-size: var(--fs-micro); line-height: 1;
-  transition: transform var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
-}
-.proof-disclosure::before { content: "▸"; }
-.proof-disclosure:hover { color: var(--text-strong); }
-.proof-row[aria-expanded="true"] .proof-disclosure { transform: rotate(90deg); }
-.proof-row[aria-expanded] { cursor: pointer; }
-.proof-icon  { grid-column: 2; color: var(--proof-role); font-size: var(--fs-code); text-align: center; }
-.proof-label { grid-column: 3; color: var(--text-body); min-width: 0; overflow-wrap: anywhere; }
-.proof-label .goal { color: var(--text-strong); font-weight: var(--w-medium); }
-.proof-label .term { color: var(--quanta-300); }
-.proof-label .rule-tag {
-  margin-left: var(--s2); padding: 1px 6px; border-radius: var(--r-sm);
-  font-size: var(--fs-micro); letter-spacing: var(--track-wide); text-transform: uppercase;
-  color: var(--proof-role); background: color-mix(in oklab, var(--proof-role) 14%, transparent);
-}
-.proof-prov { color: var(--text-faint); font-size: var(--fs-cap); }
-.proof-prov b { color: var(--info); font-weight: var(--w-regular); }
-
-/* Result badge (per node). */
-.proof-result {
-  grid-column: 4; display: inline-flex; align-items: center; gap: var(--s1);
-  padding: 1px var(--s2); border-radius: var(--r-sm);
-  font-size: var(--fs-micro); font-weight: var(--w-semibold); letter-spacing: var(--track-wide);
-  text-transform: uppercase; white-space: nowrap;
-}
-.proof-result-true  { color: var(--verdict-true);  background: var(--verdict-true-bg);  }
-.proof-result-true::before  { content: "⊤"; }
-.proof-result-false { color: var(--verdict-false); background: var(--verdict-false-bg); }
-.proof-result-false::before { content: "⊥"; }
-
-/* Children: indented, joined by a hairline connector. */
-.proof-children {
-  margin-left: 17px; padding-left: var(--s4);
-  border-left: var(--bw-hair) solid var(--border-subtle);
-}
-.proof-row[aria-expanded="false"] + .proof-children { display: none; }
-
-/* Leaf and memoized reference render inline (no disclosure). */
-.proof-leaf    .proof-disclosure { visibility: hidden; }
-.proof-ref-node .proof-row { border-left-style: solid; opacity: .92; }
-.proof-ref-node .proof-label { font-style: italic; color: var(--text-muted); }
-
-/* ── Rule-type accents: left-border + glyph color + glyph. ──────────────
-   Set the rule class on .proof-node; the row + icon inherit the hue.        */
-.proof-asserted    > .proof-row { border-left-color: var(--proof-asserted); }
-.proof-asserted    > .proof-row .proof-icon { color: var(--proof-asserted); }
-.proof-asserted    > .proof-row .proof-icon::before { content: "⊢"; }
-
-.proof-derived     > .proof-row { border-left-color: var(--proof-derived); }
-.proof-derived     > .proof-row .proof-icon { color: var(--proof-derived); }
-.proof-derived     > .proof-row .proof-icon::before { content: "→"; }
-
-.proof-check       > .proof-row { border-left-color: var(--proof-check); }
-.proof-check       > .proof-row .proof-icon { color: var(--proof-check); }
-.proof-check       > .proof-row .proof-icon::before { content: "⊨"; }
-
-.proof-ref         > .proof-row { border-left-color: var(--proof-ref); }
-.proof-ref         > .proof-row .proof-icon { color: var(--proof-ref); }
-.proof-ref         > .proof-row .proof-icon::before { content: "↺"; }
-
-.proof-conjunction > .proof-row { border-left-color: var(--proof-conjunction); }
-.proof-conjunction > .proof-row .proof-icon { color: var(--proof-conjunction); }
-.proof-conjunction > .proof-row .proof-icon::before { content: "∧"; }
-
-.proof-exists      > .proof-row { border-left-color: var(--proof-exists); }
-.proof-exists      > .proof-row .proof-icon { color: var(--proof-exists); }
-.proof-exists      > .proof-row .proof-icon::before { content: "∃"; }
-
-.proof-negation    > .proof-row { border-left-color: var(--proof-negation); }
-.proof-negation    > .proof-row .proof-icon { color: var(--proof-negation); }
-.proof-negation    > .proof-row .proof-icon::before { content: "¬"; }
-
-/* failed = DASHED border (non-color cue) */
-.proof-failed      > .proof-row { border-left-color: var(--proof-failed); border-left-style: dashed; }
-.proof-failed      > .proof-row .proof-icon { color: var(--proof-failed); }
-.proof-failed      > .proof-row .proof-icon::before { content: "✗"; }
-.proof-failed      > .proof-row .proof-label { color: color-mix(in oklab, var(--text-body) 80%, var(--proof-failed)); }
-
-/* role/event scaffolding = DOTTED border, muted, collapsed by default */
-.proof-role-detail > .proof-row { border-left-color: var(--proof-role); border-left-style: dotted; }
-.proof-role-detail > .proof-row .proof-icon { color: var(--proof-role); }
-.proof-role-detail > .proof-row .proof-icon::before { content: "⋯"; }
-.proof-role-detail > .proof-row .proof-label,
-.proof-role-detail > .proof-row .rule-tag { color: var(--text-faint); }
-.proof-role-detail > .proof-children { opacity: .8; }
-
-/* The rule-tag chip recolors to match its node (scoped with `>` so a nested
-   node of a different type keeps its own tag color). */
-.proof-asserted    > .proof-row .rule-tag { color: var(--proof-asserted);    background: color-mix(in oklab, var(--proof-asserted) 14%, transparent); }
-.proof-derived     > .proof-row .rule-tag { color: var(--proof-derived);     background: color-mix(in oklab, var(--proof-derived) 14%, transparent); }
-.proof-check       > .proof-row .rule-tag { color: var(--proof-check);       background: color-mix(in oklab, var(--proof-check) 16%, transparent); }
-.proof-ref         > .proof-row .rule-tag { color: var(--proof-ref);         background: color-mix(in oklab, var(--proof-ref) 14%, transparent); }
-.proof-conjunction > .proof-row .rule-tag { color: var(--proof-conjunction); background: color-mix(in oklab, var(--proof-conjunction) 16%, transparent); }
-.proof-exists      > .proof-row .rule-tag { color: var(--proof-exists);      background: color-mix(in oklab, var(--proof-exists) 16%, transparent); }
-.proof-negation    > .proof-row .rule-tag { color: var(--proof-negation);    background: color-mix(in oklab, var(--proof-negation) 14%, transparent); }
-.proof-failed      > .proof-row .rule-tag { color: var(--proof-failed);      background: color-mix(in oklab, var(--proof-failed) 14%, transparent); }
-
-/* ── 8 · QUERY ROW + STATUS BADGE ─────────────────────────────────────── */
-.query-row {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));  /* equal-width, fluid */
-  gap: var(--s3);
-  min-height: 0;
-}
-/* The query column now reuses the `.col-tabs` card + `.tabs-container` chrome (a
-   tabbed mirror of the top column: Source | Lojban | Back-translation), so the
-   old `.query-section` / `.query-header` rules are gone. */
-
-/* (The connection `.status-badge` was removed with the serverless rewrite — the
-   in-browser engine has no connection state, and the old "in-browser" badge in
-   the query header is gone with the tabbed query column.) */
-
-/* Query bar — mono input with a decorative `xu` cue + primary Query. */
-.query-bar { display: flex; gap: var(--s2); align-items: stretch; }
-.query-input {
-  flex: 1; min-width: 0; height: var(--control-h);
-  padding: 0 var(--s3) 0 calc(var(--s3) + 3ch);
-  background: var(--surface-inset); color: var(--text-strong);
-  font-family: var(--font-mono); font-size: var(--fs-code);
-  border: var(--bw-hair) solid var(--border-subtle); border-radius: var(--r-md);
-  transition: border-color var(--dur-fast) var(--ease-out), box-shadow var(--dur-fast) var(--ease-out);
-}
-.query-input:hover { border-color: var(--border-strong); }
-.query-input:focus { outline: none; border-color: var(--accent); box-shadow: var(--ring-field); }
-.query-bar { position: relative; }
-/* Decorative `xu` reading cue (Lojban yes/no marker) — purely a visual hint that
-   this box is a query; it is never part of the typed text and never sent to the
-   engine. `cursor: help` + a `title` tooltip explain it on hover. */
-.query-bar__affix {
-  position: absolute; left: var(--s3); top: 50%; transform: translateY(-50%);
-  font-family: var(--font-mono); font-size: var(--fs-code); color: var(--accent);
-  cursor: help;
-}
-
-/* Caption under the query bar: you state a claim, not ask a question. */
-.query-hint {
-  font-size: var(--fs-cap); color: var(--text-faint); line-height: 1.4;
-}
-
-/* The query's IR back-translation, shown inline under the query input on the
-   Lojban tab as "Query if <reading>" beneath a back-translation eyebrow. While a
-   query is incomplete/invalid mid-typing it shows a stable pending indicator
-   instead of blanking. */
-.query-gloss { display: flex; flex-direction: column; gap: var(--s1); }
-.query-gloss__reading {
-  font-size: var(--fs-code);
-  line-height: 1.45;
-  color: var(--text-muted);
-}
-.query-gloss__prefix { color: var(--text-faint); }
-.query-gloss__text { color: var(--text-body); font-style: italic; }
-.query-gloss__reading--pending {
-  font-size: var(--fs-cap);
-  color: var(--warning);
-  font-style: normal;
-}
-.query-btn {
-  display: inline-flex; align-items: center; justify-content: center; gap: var(--s2);
-  height: var(--control-h); padding: 0 var(--s4);
-  font-family: var(--font-mono); font-size: var(--fs-code); font-weight: var(--w-medium);
-  letter-spacing: var(--track-wide); line-height: 1; white-space: nowrap; cursor: pointer;
-  color: var(--text-on-ember); background: var(--accent);
-  border: var(--bw-hair) solid transparent; border-radius: var(--r-md);
-  transition: background var(--dur-fast) var(--ease-out), box-shadow var(--dur-fast) var(--ease-out),
-              transform var(--dur-fast) var(--ease-out);
-}
-.query-btn:hover { background: var(--accent-hover); box-shadow: var(--glow-ember); }
-.query-btn:active { transform: translateY(1px); background: var(--accent-press); }
-.query-btn:focus-visible { box-shadow: var(--ring); }
-.query-btn:disabled { opacity: .45; cursor: not-allowed; }
-.query-btn.busy { pointer-events: none; }
-.query-btn.busy::before { content: "◴"; animation: pulse 1s var(--ease-out) infinite; }
-
-/* ── 9 · OUTPUT LOG ───────────────────────────────────────────────────── */
-.output-log-container {
-  display: flex; flex-direction: column; min-height: 0;
-  padding: var(--s4);
-  background: var(--surface-card);
-  border: var(--bw-hair) solid var(--border-subtle);
-  border-radius: var(--r-lg);
-}
-.output-log-header {
-  display: flex; align-items: center; gap: var(--s3); flex: none;
-  padding-bottom: var(--s3); margin-bottom: var(--s2);
-  border-bottom: var(--bw-hair) solid var(--border-subtle);
-}
-.output-log-header__label {
-  font-family: var(--font-mono); font-size: var(--fs-micro); font-weight: var(--w-semibold);
-  text-transform: uppercase; letter-spacing: var(--track-caps); color: var(--text-muted);
-}
-.output-log-header__sp { flex: 1; }
-.output-clear-btn {
-  display: inline-flex; align-items: center; gap: var(--s1);
-  height: var(--control-h-sm); padding: 0 var(--s3);
-  font-family: var(--font-mono); font-size: var(--fs-cap); letter-spacing: var(--track-wide);
-  color: var(--text-muted); background: transparent; border: none; cursor: pointer; border-radius: var(--r-sm);
-  transition: color var(--dur-fast) var(--ease-out), background var(--dur-fast) var(--ease-out);
-}
-.output-clear-btn:hover { color: var(--text-strong); background: var(--surface-hover); }
-.output-clear-btn:focus-visible { box-shadow: var(--ring); }
-
-.output-log { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 2px; }
-.output-entry {
-  display: grid; grid-template-columns: 1fr auto; align-items: center; gap: var(--s3);
-  padding: var(--s2) var(--s3);
-  border-radius: var(--r-sm);
-  border-left: 2px solid transparent;
-  transition: background var(--dur-fast) var(--ease-out);
-}
-.output-entry:hover { background: var(--surface-hover); }
-.output-input { font-family: var(--font-mono); font-size: var(--fs-code); color: var(--text-body); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.output-input::before { content: "xu "; color: var(--accent); }
-
-/* Result chips — TRUE / FALSE / UNKNOWN / RESOURCE-EXCEEDED. */
-.output-result {
-  display: inline-flex; align-items: center; gap: var(--s1);
-  padding: 2px var(--s2); border-radius: var(--r-sm);
-  font-family: var(--font-mono); font-size: var(--fs-micro); font-weight: var(--w-semibold);
-  letter-spacing: var(--track-wide); text-transform: uppercase; white-space: nowrap;
-}
-.output-result.is-true   { color: var(--verdict-true);    background: var(--verdict-true-bg); }
-.output-result.is-true::before   { content: "⊤"; }
-.output-result.is-false  { color: var(--verdict-false);   background: var(--verdict-false-bg); }
-.output-result.is-false::before  { content: "⊥"; }
-.output-result.is-unknown{ color: var(--verdict-unknown); background: var(--verdict-unknown-bg); }
-.output-result.is-unknown::before{ content: "?"; }
-.output-result.is-limit  { color: var(--verdict-limit);   background: var(--verdict-limit-bg); }
-.output-result.is-limit::before  { content: "◴"; }
-
-/* Error entries — leading icon + classified tint. */
-.output-entry.output-error { border-left-color: var(--error-generic); background: color-mix(in oklab, var(--error-generic) 6%, transparent); }
-.output-error-display { display: inline-flex; align-items: center; gap: var(--s2); grid-column: 1 / -1; min-width: 0; }
-.error-icon { font-family: var(--font-mono); font-size: var(--fs-code); flex: none; color: var(--error-generic); }
-.error-message { font-family: var(--font-mono); font-size: var(--fs-cap); color: var(--text-muted); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.error-message b { color: var(--text-body); font-weight: var(--w-medium); }
-
-.output-error.error-syntax    { border-left-color: var(--error-syntax); }
-.output-error.error-syntax    .error-icon { color: var(--error-syntax); }
-.output-error.error-syntax    .error-icon::before { content: "⊗"; }
-.output-error.error-semantic  { border-left-color: var(--error-semantic); }
-.output-error.error-semantic  .error-icon { color: var(--error-semantic); }
-.output-error.error-semantic  .error-icon::before { content: "≠"; }
-.output-error.error-reasoning { border-left-color: var(--error-reasoning); }
-.output-error.error-reasoning .error-icon { color: var(--error-reasoning); }
-.output-error.error-reasoning .error-icon::before { content: "⊥"; }
-.output-error.error-backend   { border-left-color: var(--error-backend); }
-.output-error.error-backend   .error-icon { color: var(--error-backend); }
-.output-error.error-backend   .error-icon::before { content: "⇄"; }
-.output-error.error-limit     { border-left-color: var(--error-limit); }
-.output-error.error-limit     .error-icon { color: var(--error-limit); }
-.output-error.error-limit     .error-icon::before { content: "◴"; }
-.output-error.error-generic   .error-icon::before { content: "!"; }
-
-/* ── 10 · NETWORK — gossip bar + summary ──────────────────────────────── */
-.network-container { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: var(--s3); }
-
-.gossip-bar { display: flex; gap: var(--s2); align-items: stretch; flex: none; }
-.gossip-input {
-  flex: 1; min-width: 0; height: var(--control-h);
-  padding: 0 var(--s3);
-  background: var(--surface-inset); color: var(--text-strong);
-  font-family: var(--font-mono); font-size: var(--fs-code);
-  border: var(--bw-hair) solid var(--border-subtle); border-radius: var(--r-md);
-  transition: border-color var(--dur-fast) var(--ease-out), box-shadow var(--dur-fast) var(--ease-out);
-}
-.gossip-input:hover { border-color: var(--border-strong); }
-.gossip-input:focus { outline: none; border-color: var(--accent); box-shadow: var(--ring-field); }
-/* ── QUINE dropdown (.nb-select) — header example picker + query preset picker.
-   Native caret suppressed; the chevron is drawn via two layered gradients. ── */
-.nb-select {
-  height: var(--control-h); padding: 0 calc(var(--s5) + 4px) 0 var(--s3);
-  background: var(--surface-inset); color: var(--text-body);
-  font-family: var(--font-mono); font-size: var(--fs-cap);
-  border: var(--bw-hair) solid var(--border-subtle); border-radius: var(--r-md); cursor: pointer;
-  appearance: none;
-  background-image: linear-gradient(45deg, transparent 50%, var(--text-faint) 50%),
-                    linear-gradient(135deg, var(--text-faint) 50%, transparent 50%);
-  background-position: calc(100% - 16px) 52%, calc(100% - 11px) 52%;
-  background-size: 5px 5px, 5px 5px; background-repeat: no-repeat;
-  transition: border-color var(--dur-fast) var(--ease-out), box-shadow var(--dur-fast) var(--ease-out);
-}
-.nb-select:hover { border-color: var(--border-strong); }
-.nb-select:focus { outline: none; border-color: var(--accent); box-shadow: var(--ring-field); }
-/* Header example picker: compact, among the right-side controls. */
-.app-header__examples { flex: none; height: 26px; font-size: 11px; max-width: 15rem; }
-/* Query preset dropdown fills the query bar; pad-left clears the `xu` affix. */
-.query-select { flex: 1; min-width: 0; padding-left: calc(var(--s3) + 3ch); }
-/* Read-only KB fields in example mode: a muted, non-editable affordance. */
-.source-input[readonly], .lojban-input[readonly] { cursor: default; background: var(--bg-sunken); }
-.gossip-btn {
-  display: inline-flex; align-items: center; justify-content: center; gap: var(--s2);
-  height: var(--control-h); padding: 0 var(--s4);
-  font-family: var(--font-mono); font-size: var(--fs-code); font-weight: var(--w-medium);
-  letter-spacing: var(--track-wide); white-space: nowrap; cursor: pointer;
-  color: var(--text-on-ember); background: var(--accent);
-  border: var(--bw-hair) solid transparent; border-radius: var(--r-md);
-  transition: background var(--dur-fast) var(--ease-out), box-shadow var(--dur-fast) var(--ease-out), transform var(--dur-fast) var(--ease-out);
-}
-.gossip-btn:hover { background: var(--accent-hover); box-shadow: var(--glow-ember); }
-.gossip-btn:active { transform: translateY(1px); background: var(--accent-press); }
-.gossip-btn:focus-visible { box-shadow: var(--ring); }
-
-.network-error {
-  display: flex; align-items: center; gap: var(--s2); padding: var(--s2) var(--s3);
-  font-size: var(--fs-cap); color: var(--text-body);
-  background: var(--verdict-false-bg); border: var(--bw-hair) solid color-mix(in oklab, var(--danger) 28%, transparent);
-  border-left: 3px solid var(--danger); border-radius: var(--r-sm);
-}
-
-.network-summary {
-  display: flex; gap: var(--s2); align-items: stretch; flex: none; flex-wrap: wrap;
-}
-.network-stat {
-  flex: 1; min-width: 96px;
-  display: flex; flex-direction: column; gap: 2px;
-  padding: var(--s2) var(--s3);
-  background: var(--surface-inset); border: var(--bw-hair) solid var(--border-subtle); border-radius: var(--r-md);
-}
-.network-stat__num { font-family: var(--font-mono); font-size: var(--fs-hero); font-weight: var(--w-medium); color: var(--text-strong); line-height: 1; }
-.network-stat__label { font-family: var(--font-mono); font-size: var(--fs-micro); text-transform: uppercase; letter-spacing: var(--track-wide); color: var(--text-faint); }
-.network-stat.is-alert .network-stat__num { color: var(--danger); }
-.network-refresh { display: inline-flex; align-items: center; gap: var(--s1); font-size: var(--fs-micro); color: var(--text-faint); letter-spacing: var(--track-wide); align-self: center; }
-.network-refresh::before { content: "↻"; animation: spin 4s linear infinite; }
-
-/* ── 11 · NETWORK — agents ────────────────────────────────────────────── */
-.network-panels {
-  flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(220px, 0.8fr) 1.2fr; gap: var(--s3);
-}
-.network-panel, .network-panel-wide {
-  display: flex; flex-direction: column; min-height: 0;
-  background: var(--bg-raised); border: var(--bw-hair) solid var(--border-subtle); border-radius: var(--r-md);
-  overflow: hidden;
-}
-.panel-header {
-  display: flex; align-items: center; gap: var(--s2); flex: none;
-  padding: var(--s2) var(--s3); border-bottom: var(--bw-hair) solid var(--border-subtle);
-  font-family: var(--font-mono); font-size: var(--fs-micro); font-weight: var(--w-semibold);
-  text-transform: uppercase; letter-spacing: var(--track-caps); color: var(--text-muted);
-}
-.panel-header__sp { flex: 1; }
-
-.agent-list, .envelope-list, .event-list {
-  flex: 1; min-height: 0; overflow-y: auto;
-  padding: var(--s2); display: flex; flex-direction: column; gap: var(--s2);
-}
-
-.agent-card {
-  display: flex; flex-direction: column; gap: var(--s2);
-  padding: var(--s3);
-  background: var(--surface-card); border: var(--bw-hair) solid var(--border-subtle);
-  border-top: 2px solid transparent;       /* reserve space for the ember rule */
-  border-radius: var(--r-md); cursor: pointer;
-  transition: border-color var(--dur-fast) var(--ease-out), background var(--dur-fast) var(--ease-out);
-}
-.agent-card:hover { border-color: var(--border-strong); }
-.agent-card.agent-card-selected { border-top-color: var(--accent); background: var(--surface-hover); }
-.agent-card.agent-card-local { box-shadow: inset 2px 0 0 var(--alive); }
-
-.agent-name { display: flex; align-items: center; gap: var(--s2); font-family: var(--font-mono); font-size: var(--fs-code); font-weight: var(--w-medium); color: var(--text-strong); }
-.agent-local-badge {
-  font-size: var(--fs-micro); font-weight: var(--w-semibold); letter-spacing: var(--track-wide); text-transform: uppercase;
-  padding: 1px var(--s2); border-radius: var(--r-sm);
-  color: var(--alive); background: color-mix(in oklab, var(--alive) 14%, transparent);
-  border: var(--bw-hair) solid color-mix(in oklab, var(--alive) 30%, transparent);
-}
-.agent-stats { display: flex; align-items: center; gap: var(--s3); }
-.agent-stat { font-family: var(--font-mono); font-size: var(--fs-cap); color: var(--text-muted); }
-.agent-stat b { color: var(--text-strong); font-weight: var(--w-medium); }
-
-/* Stacked stance bar — the 4 evidential segments. */
-.stance-bar { display: flex; height: 6px; border-radius: var(--r-full); overflow: hidden; background: var(--surface-inset); }
-.stance-segment { height: 100%; }
-.stance-deduced  { background: var(--stance-deduced); }
-.stance-expected { background: var(--stance-expected); }
-.stance-opinion  { background: var(--stance-opinion); }
-.stance-hearsay  { background: var(--stance-hearsay); }
-
-.agent-topics { display: flex; flex-wrap: wrap; gap: var(--s1); }
-.topic-tag {
-  font-family: var(--font-mono); font-size: var(--fs-micro); color: var(--text-muted);
-  padding: 1px var(--s2); border-radius: var(--r-sm);
-  background: var(--surface-inset); border: var(--bw-hair) solid var(--border-subtle);
-}
-.topic-tag::before { content: "#"; color: var(--text-faint); }
-
-/* ── 12 · NETWORK — events / envelopes ────────────────────────────────── */
-.event-card {
-  display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: var(--s2);
-  padding: var(--s2) var(--s3);
-  border-radius: var(--r-sm);
-  border-left: 2px solid var(--border-strong);
-  background: var(--surface-card);
-}
-.event-icon { font-family: var(--font-mono); font-size: var(--fs-code); color: var(--text-muted); }
-.event-label { font-family: var(--font-mono); font-size: var(--fs-cap); color: var(--text-body); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.event-label b { color: var(--text-strong); font-weight: var(--w-medium); }
-.event-time { font-family: var(--font-mono); font-size: var(--fs-micro); color: var(--text-faint); }
-.event-card.is-envelope      { border-left-color: var(--stance-deduced); }
-.event-card.is-envelope .event-icon { color: var(--stance-deduced); }
-.event-card.is-envelope .event-icon::before { content: "⊞"; }
-.event-card.is-contradiction { border-left-color: var(--danger); }
-.event-card.is-contradiction .event-icon { color: var(--danger); }
-.event-card.is-contradiction .event-icon::before { content: "⊥"; }
-.event-card.is-peer          { border-left-color: var(--info); }
-.event-card.is-peer .event-icon { color: var(--info); }
-.event-card.is-peer .event-icon::before { content: "⇄"; }
-.event-card.is-sync          { border-left-color: var(--symbol); }
-.event-card.is-sync .event-icon { color: var(--symbol); }
-.event-card.is-sync .event-icon::before { content: "↻"; }
-
-.envelope-card {
-  display: flex; flex-direction: column; gap: var(--s2);
-  padding: var(--s3);
-  background: var(--surface-card); border: var(--bw-hair) solid var(--border-subtle); border-radius: var(--r-md);
-}
-.envelope-header { display: flex; align-items: center; gap: var(--s2); flex-wrap: wrap; }
-.envelope-id { font-family: var(--font-mono); font-size: var(--fs-cap); color: var(--text-faint); max-width: 12ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.envelope-id::before { content: "⟨"; } .envelope-id::after { content: "⟩"; }
-.envelope-author { font-family: var(--font-mono); font-size: var(--fs-cap); color: var(--text-muted); margin-left: auto; }
-.envelope-author::before { content: "by "; color: var(--text-faint); }
-.envelope-lojban { font-family: var(--font-mono); font-size: var(--fs-code); color: var(--quanta-300); line-height: var(--lh-code); overflow-wrap: anywhere; }
-.envelope-topics { display: flex; flex-wrap: wrap; gap: var(--s1); }
-
-/* Stance badge — shared chip, colored per evidential. */
-.stance-badge {
-  display: inline-flex; align-items: center; gap: var(--s1);
-  padding: 1px var(--s2); border-radius: var(--r-sm);
-  font-family: var(--font-mono); font-size: var(--fs-micro); font-weight: var(--w-semibold);
-  letter-spacing: var(--track-wide); text-transform: uppercase; white-space: nowrap;
-  color: var(--text-muted); background: var(--surface-inset); border: var(--bw-hair) solid var(--border-subtle);
-}
-.stance-badge.stance-deduced  { color: var(--stance-deduced);  background: color-mix(in oklab, var(--stance-deduced) 14%, transparent);  border-color: color-mix(in oklab, var(--stance-deduced) 30%, transparent); }
-.stance-badge.stance-deduced::before  { content: "⊢"; }
-.stance-badge.stance-expected { color: var(--stance-expected); background: color-mix(in oklab, var(--stance-expected) 14%, transparent); border-color: color-mix(in oklab, var(--stance-expected) 30%, transparent); }
-.stance-badge.stance-expected::before { content: "◇"; }
-.stance-badge.stance-opinion  { color: var(--stance-opinion);  background: color-mix(in oklab, var(--stance-opinion) 16%, transparent);  border-color: color-mix(in oklab, var(--stance-opinion) 32%, transparent); }
-.stance-badge.stance-opinion::before  { content: "◐"; }
-.stance-badge.stance-hearsay  { color: var(--stance-hearsay);  background: color-mix(in oklab, var(--stance-hearsay) 14%, transparent);  border-color: color-mix(in oklab, var(--stance-hearsay) 30%, transparent); }
-.stance-badge.stance-hearsay::before  { content: "⊙"; }
-
-/* Envelope flags. */
-.quarantine-badge, .retraction-badge {
-  display: inline-flex; align-items: center; gap: var(--s1);
-  padding: 1px var(--s2); border-radius: var(--r-sm);
-  font-family: var(--font-mono); font-size: var(--fs-micro); font-weight: var(--w-semibold);
-  letter-spacing: var(--track-wide); text-transform: uppercase;
-}
-.quarantine-badge { color: var(--flag-quarantine); background: color-mix(in oklab, var(--flag-quarantine) 16%, transparent); border: var(--bw-hair) solid color-mix(in oklab, var(--flag-quarantine) 34%, transparent); }
-.quarantine-badge::before { content: "⚠"; }
-.retraction-badge { color: var(--flag-retracted); background: color-mix(in oklab, var(--flag-retracted) 14%, transparent); border: var(--bw-hair) solid color-mix(in oklab, var(--flag-retracted) 30%, transparent); }
-.retraction-badge::before { content: "⊖"; }
-
-.envelope-card.envelope-card-quarantined { border-color: color-mix(in oklab, var(--flag-quarantine) 34%, var(--border-subtle)); background: color-mix(in oklab, var(--flag-quarantine) 5%, var(--surface-card)); }
-.envelope-card.envelope-card-retraction { opacity: .55; }
-.envelope-card.envelope-card-retraction .envelope-lojban { text-decoration: line-through; text-decoration-color: var(--flag-retracted); color: var(--text-muted); }
-
-/* ── 13 · NETWORK — contradictions ────────────────────────────────────── */
-.contradictions-panel {
-  flex: none;
-  border: var(--bw-hair) solid color-mix(in oklab, var(--danger) 34%, transparent);
-  border-radius: var(--r-md); overflow: hidden;
-  background: color-mix(in oklab, var(--danger) 5%, var(--bg-raised));
-}
-.contradictions-header {
-  display: flex; align-items: center; gap: var(--s2);
-  padding: var(--s2) var(--s3);
-  font-family: var(--font-mono); font-size: var(--fs-micro); font-weight: var(--w-semibold);
-  text-transform: uppercase; letter-spacing: var(--track-caps); color: var(--danger);
-  border-bottom: var(--bw-hair) solid color-mix(in oklab, var(--danger) 24%, transparent);
-}
-.contradictions-header::before { content: "⊥"; font-size: var(--fs-code); }
-.contradiction-card {
-  display: grid; grid-template-columns: 1fr auto; align-items: center; gap: var(--s2) var(--s3);
-  padding: var(--s3);
-  border-top: var(--bw-hair) solid color-mix(in oklab, var(--danger) 14%, transparent);
-}
-.contradiction-card:first-of-type { border-top: none; }
-.contradiction-info { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.contradiction-id { font-family: var(--font-mono); font-size: var(--fs-micro); color: var(--text-faint); }
-.contradiction-author { font-family: var(--font-mono); font-size: var(--fs-cap); color: var(--text-muted); }
-.contradiction-author b { color: var(--text-body); font-weight: var(--w-medium); }
-.contradiction-assertion { font-family: var(--font-mono); font-size: var(--fs-code); color: var(--text-body); overflow-wrap: anywhere; }
-.contradiction-resolve-btn {
-  display: inline-flex; align-items: center; gap: var(--s1);
-  height: var(--control-h-sm); padding: 0 var(--s3);
-  font-family: var(--font-mono); font-size: var(--fs-cap); font-weight: var(--w-medium); letter-spacing: var(--track-wide);
-  color: var(--text-strong); background: transparent; cursor: pointer;
-  border: var(--bw-hair) solid var(--border-strong); border-radius: var(--r-sm);
-  transition: border-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out), background var(--dur-fast) var(--ease-out);
-}
-.contradiction-resolve-btn:hover { border-color: var(--danger); color: var(--danger); background: var(--verdict-false-bg); }
-.contradiction-resolve-btn:active { transform: translateY(1px); }
-.contradiction-resolve-btn:focus-visible { box-shadow: var(--ring); }
-
-.network-empty {
-  flex: 1; display: flex; align-items: center; justify-content: center; padding: var(--s6);
-  color: var(--text-faint); font-size: var(--fs-code); font-style: italic; text-align: center;
-}
 
 /* ── 14 · kbd hints, keyframes, scrollbars ────────────────────────────── */
 .kbd-hint { display: inline-flex; align-items: center; gap: var(--s1); font-family: var(--font-mono); font-size: var(--fs-micro); color: var(--text-faint); }
@@ -1038,18 +380,11 @@ body {
 }
 
 @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .35; } }
-@keyframes scan  { 0% { transform: translateX(-120%); } 100% { transform: translateX(360%); } }
-@keyframes spin  { to { transform: rotate(360deg); } }
 
 /* Themed scrollbars — thin, void-toned. */
-.tab-content, .proof-panel, .output-log, .back-translation,
-.agent-list, .envelope-list, .event-list { scrollbar-width: thin; scrollbar-color: var(--border-strong) transparent; }
-.tab-content::-webkit-scrollbar, .proof-panel::-webkit-scrollbar, .output-log::-webkit-scrollbar,
-.back-translation::-webkit-scrollbar, .agent-list::-webkit-scrollbar,
-.envelope-list::-webkit-scrollbar, .event-list::-webkit-scrollbar { width: 10px; height: 10px; }
-.tab-content::-webkit-scrollbar-thumb, .proof-panel::-webkit-scrollbar-thumb, .output-log::-webkit-scrollbar-thumb,
-.back-translation::-webkit-scrollbar-thumb, .agent-list::-webkit-scrollbar-thumb,
-.envelope-list::-webkit-scrollbar-thumb, .event-list::-webkit-scrollbar-thumb {
+.tab-content, .back-translation { scrollbar-width: thin; scrollbar-color: var(--border-strong) transparent; }
+.tab-content::-webkit-scrollbar, .back-translation::-webkit-scrollbar { width: 10px; height: 10px; }
+.tab-content::-webkit-scrollbar-thumb, .back-translation::-webkit-scrollbar-thumb {
   background: var(--border-strong); border-radius: var(--r-full); border: 3px solid transparent; background-clip: content-box;
 }
 
