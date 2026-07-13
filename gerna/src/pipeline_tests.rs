@@ -799,3 +799,74 @@ fn truncated_zei_fails_closed() {
         "a `zei` with no following word must fail closed, not drop the previous word"
     );
 }
+
+// ─── GRAMMAR_EBNF is grounded in the parser ───
+//
+// `crate::GRAMMAR_EBNF` is embedded verbatim in fanva's LLM system prompt, so a construct
+// it documents that the parser actually rejects would teach the model to emit un-gateable
+// Lojban. This pins one parse-verified example per documented construct: add the example
+// here whenever you add a production to the const (and drop it if you remove one). Every
+// example below was also confirmed camxes-accepted out of band.
+
+#[test]
+fn grammar_ebnf_constructs_parse() {
+    let cases: &[(&str, &str)] = &[
+        (".i sentence chain", "mi klama .i do cadzu"),
+        ("sentence connective .i je", "mi bajra .i je mi citka"),
+        ("tense pu", "mi pu klama lo zarci"),
+        ("tense ca", "mi ca klama lo zarci"),
+        ("tense ba", "mi ba klama lo zarci"),
+        ("place tag fi", "mi klama fi lo zdani"),
+        ("description lo", "lo gerku cu bajra"),
+        ("quantifier ro", "ro lo gerku cu danlu"),
+        ("quantifier su'o", "su'o lo prenu cu tavla"),
+        ("quantifier PA", "ci lo gerku cu bajra"),
+        ("pro-sumti ko'a + ti", "ko'a viska ti"),
+        ("pro-sumti da", "da klama"),
+        ("pro-sumti ma", "ma tavla"),
+        ("pro-sumti ti/ta/tu", "ti ta tu cu simsa"),
+        ("pro-sumti ri", "ri klama"),
+        ("name la + cmevla", "la .adam. cu gerku"),
+        ("sumti connective .e", "la .adam. .e lo mlatu cu citka"),
+        ("sumti connective .a", "mi .a do klama"),
+        ("sumti connective .u", "mi .u do klama"),
+        ("relative clause poi", "lo gerku poi bajra cu danlu"),
+        ("relative clause noi", "lo prenu noi tavla cu klama"),
+        ("relative clause voi", "lo gerku voi bajra cu danlu"),
+        ("negation na", "la .adam. na citka"),
+        ("conversion se", "lo mlatu cu se viska la .adam."),
+        ("conversion te", "lo mlatu cu te dunda la .adam."),
+        ("tanru", "lo barda gerku cu bajra"),
+        ("ke .. ke'e", "lo ke barda gerku ke'e cu bajra"),
+        ("be clause", "lo prenu cu tavla be do"),
+        ("be .. bei", "lo prenu cu tavla be do bei lo cukta"),
+        ("selbri connective je", "lo gerku cu barda je bajra"),
+        ("selbri connective ja", "lo gerku cu barda ja bajra"),
+        ("selbri connective jenai", "lo gerku cu barda jenai bajra"),
+        ("GIhA gi'e", "mi bajra gi'e citka"),
+        ("GIhA gi'a", "mi bajra gi'a citka"),
+        ("forethought ge .. gi", "ge mi bajra gi mi citka"),
+        ("forethought ganai .. gi", "ganai mi bajra gi mi citka"),
+        ("abstraction nu", "mi jinvi lo nu mi klama"),
+        ("abstraction nu .. kei", "mi jinvi lo nu mi klama kei"),
+        ("identity du", "ti du ta"),
+        ("pro-bridi go'i", "mi go'i"),
+        ("prenex ro da zo'u", "ro da zo'u da danlu"),
+    ];
+
+    let mut failures = Vec::new();
+    for (construct, example) in cases {
+        if let Err(e) = crate::parse_checked(example) {
+            failures.push(format!("{construct}: {example:?} → {e:?}"));
+        }
+    }
+    assert!(
+        failures.is_empty(),
+        "GRAMMAR_EBNF documents constructs the parser rejects:\n{}",
+        failures.join("\n")
+    );
+    assert!(
+        crate::GRAMMAR_EBNF.contains("sumti") && crate::GRAMMAR_EBNF.contains("selbri"),
+        "GRAMMAR_EBNF looks empty/gutted"
+    );
+}

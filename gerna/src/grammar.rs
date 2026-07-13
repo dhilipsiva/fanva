@@ -4,37 +4,56 @@
 //! metalinguistic resolution). Produces an arena-allocated AST with per-sentence
 //! error recovery (on failure, skips to next `.i` boundary and continues parsing).
 //!
-//! # Grammar (subset of CLL, expanded incrementally)
+//! # Grammar
 //!
-//! ```text
-//! text        → sentence (.i sentence)*
-//! sentence    → tense? terms? cu? tense? selbri tail? vau?
-//! tail        → terms
-//! terms       → term+
-//! term        → place_tag sumti | modal_tag sumti | sumti
-//! modal_tag   → bai_tag | fi'o selbri fe'u?
-//! bai_tag     → ri'a | ni'i | mu'i | ki'u | pi'o | ba'i
-//! sumti       → la_name | description | pro_sumti | quoted
-//!              | sumti rel_clause
-//! la_name     → la cmevla+
-//! quantified_desc → su'o? PA* (lo|le) selbri ku?
-//! description → ro? (lo|le) selbri ku?
-//! rel_clause  → (poi|noi) sentence ku'o?
-//! selbri      → na? selbri_conn
-//! selbri_conn → selbri_2 ((je|ja|jo|ju) selbri_2)*
-//! selbri_2    → conversion? tanru
-//! tanru       → tanru_unit+   (right-grouping)
-//! tanru_unit  → brivla | ke selbri ke'e? | tanru_unit be_clause
-//! be_clause   → be sumti (bei sumti)* be'o?
-//! brivla      → gismu | lujvo | compound
-//! conversion  → se | te | ve | xe
-//! place_tag   → fa | fe | fi | fo | fu
-//! ```
+//! The accepted fragment is written out in [`GRAMMAR_EBNF`] — a `pub const`, not just a
+//! doc-comment, so downstream crates can embed it verbatim and it stays in sync with the
+//! parser by construction. (`fanva`'s LLM system prompt does exactly this, so the prompt's
+//! grammar can't drift from what the gate accepts.) Every construct it names has a
+//! parse-verified example in `grammar_ebnf_constructs_parse` (`pipeline_tests.rs`) — keep
+//! the const, that test, and the parser in step.
 
 use crate::ast::*;
 use crate::lexer::LojbanToken;
 use crate::preprocessor::NormalizedToken;
 use bumpalo::Bump;
+
+/// The fragment of Lojban this parser accepts, written out in EBNF. Exposed as a
+/// `pub const` (re-exported as `gerna::GRAMMAR_EBNF`) so consumers can embed it verbatim
+/// instead of hand-copying a cheat-sheet that drifts — `fanva` puts it in the LLM system
+/// prompt so the prompt's grammar is, by construction, exactly what the gate accepts.
+///
+/// Terminals are cmavo written bare. Deliberately conservative: it documents only
+/// constructs with a parse-verified example in `grammar_ebnf_constructs_parse`
+/// (`pipeline_tests.rs`); the parser accepts a few more (e.g. `li` number arithmetic,
+/// modal `bai`/`fi'o` tags) that smuni doesn't fully compile, so they are left out.
+pub const GRAMMAR_EBNF: &str = r#"text        → prenex? sentence (.i (je | ja | jo | ju)? sentence)*
+prenex      → (ro | su'o | PA) (da | de | di) zo'u
+sentence    → tense? terms? cu? tense? selbri tail?
+            | (ge | ga | go | ganai) sentence gi sentence
+tense       → pu | ca | ba                       (past | present | future)
+tail        → terms
+            | bridi_tail (gi'e | gi'a | gi'o | gi'u) nai? bridi_tail
+terms       → term+
+term        → place_tag? sumti
+place_tag   → fa | fe | fi | fo | fu             (fill place x1..x5 explicitly)
+sumti       → sumti1 ((.e | .a | .o | .u) nai? sumti1)?
+sumti1      → la cmevla+                          (a name; cmevla ends in a consonant)
+            | (ro | su'o | PA)? (lo | le) selbri ku?
+            | pro_sumti
+            | sumti1 (poi | noi | voi) sentence ku'o?
+pro_sumti   → mi | do | ti | ta | tu | ri | ma | zo'e | da | de | di | ko'a..ko'u | ke'a | ce'u
+selbri      → na? selbri1 ((je | ja | jo | ju) nai? selbri1)?
+selbri1     → conversion? tanru
+conversion  → se | te | ve | xe                  (swap place x1 with x2 | x3 | x4 | x5)
+tanru       → tanru_unit+                         (a chain of modifier words)
+tanru_unit  → brivla
+            | ke selbri ke'e?
+            | (nu | du'u | ka | ni | si'o) sentence kei?
+            | du | go'i
+            | tanru_unit be sumti (bei sumti)* be'o?
+brivla      → gismu | lujvo                       (a predicate word; must be in the dictionary)
+PA          → pa re ci vo mu xa ze bi so no       (number words: "ci lo gerku" = three dogs)"#;
 
 /// Selbri parsing rules (tanru, connectives, conversion, abstraction, be-clauses).
 mod selbri;

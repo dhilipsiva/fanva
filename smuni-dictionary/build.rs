@@ -279,6 +279,7 @@ const FALLBACK_GISMU_ENTRIES: &[(&str, usize, &str)] = &[
     ("bevri", 5, "carry"),
     ("vecnu", 4, "sell"),
     ("dunda", 3, "give"),
+    ("cukta", 5, "book"), // in the system-prompt ditransitive few-shot; arity matches the full build
     ("prami", 2, "love"),
     ("gerku", 2, "dog"),
     ("mlatu", 2, "cat"),
@@ -505,6 +506,11 @@ const CMAVO_GLOSS_OVERRIDES: &[(&str, &str)] = &[
     ("lo", "the"),
     ("le", "the"),
     ("la", ""),
+    // Sumti connective + pro-sumti taught in the system-prompt few-shots (keeps the
+    // curated fallback build a superset of the prompt's vocabulary — see the fanva
+    // prompt-guard test). ".e" is keyed without the leading pause, matching lensisku.
+    ("e", "and"),
+    ("ko'a", "it"),
     // Structural terminators (suppress in output)
     ("cu", ""),
     ("ku", ""),

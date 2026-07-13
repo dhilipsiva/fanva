@@ -115,9 +115,19 @@ All inside the flake dev shell, inside WSL. `just --list` shows everything; the 
 - **The deployed worker is shared.** `https://fanva-proxy.dhilipsiva.workers.dev/mcp` (the
   UI's prefilled default) currently also serves nibli's UI until nibli's Lojban purge lands.
   Don't redeploy or change `ALLOWED_ORIGINS` casually; local dev origins go in `.dev.vars`.
-- **The prompt guard test is a gate.** Every few-shot example in `LOJBAN_SYSTEM_PROMPT` must
-  pass the crate's own gates (`system_prompt.rs` test) — editing the prompt means keeping the
-  examples gate-valid in BOTH dictionary modes (fallback and full).
+- **The prompt is grammar-grounded; its guard tests are a gate.** `LOJBAN_SYSTEM_PROMPT` is
+  assembled at runtime (a `LazyLock<String>`) with its grammar block embedded verbatim from
+  `gerna::GRAMMAR_EBNF`, so the prompt's grammar can't drift from the parser. The
+  `system_prompt.rs` tests pin this (the block equals `gerna::GRAMMAR_EBNF`), keep every
+  few-shot example gate-valid, AND require every example word to be a real `smuni-dictionary`
+  entry (smuni defaults unknown words to arity 2, so a plain gate-parse wouldn't catch an
+  out-of-dictionary word). Editing the prompt means keeping it green in BOTH dictionary modes
+  (fallback and full) — if the fallback build flags a word, add it to the curated set in
+  `smuni-dictionary/build.rs`. On the gerna side, `gerna::GRAMMAR_EBNF` is itself grounded by
+  `grammar_ebnf_constructs_parse` (one parse-verified example per documented construct); the
+  const and that test move together with the parser. NOTE: toggling `dictionary-en.json` to
+  switch dict modes needs a `cargo clean -p smuni-dictionary` (an `mv`-restored file keeps its
+  old mtime, so the build can otherwise stay cached in the wrong mode).
 - **`fanva-validate` is the python flywheel's contract:** JSON-per-line on stdout, accepts
   `--lang lojban` for compatibility. `generate_training_data.py`/`nibli_model.py` subprocess
   `target/{debug,release}/fanva-validate`.

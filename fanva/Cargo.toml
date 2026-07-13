@@ -45,6 +45,10 @@ required-features = ["measure"]
 [dev-dependencies]
 # A minimal block_on for driving the async agent loop in native unit tests.
 futures = { version = "0.3", features = ["executor"] }
+# The prompt-guard test grounds the system prompt's vocabulary against the shipped
+# dictionary (every example word must be a real dictionary entry, not one smuni silently
+# defaults to arity 2). Test-only — the prompt itself pulls the grammar from `gerna`.
+smuni-dictionary = { path = "../smuni-dictionary" }
 
 # Browser fetch — compiled ONLY for the wasm target (the concrete `Chat` transport).
 # Native builds/tests skip it and use a mock `Chat`, so the pure logic stays offline-testable.

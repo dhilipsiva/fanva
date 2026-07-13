@@ -21,6 +21,10 @@ pub mod lexer;
 /// Metalinguistic preprocessor (si/sa/su/zo/zoi/zei resolution).
 pub mod preprocessor;
 
+/// The EBNF of the accepted Lojban fragment, embeddable by consumers (e.g. the fanva
+/// LLM prompt) so their grammar description can't drift from the parser.
+pub use grammar::GRAMMAR_EBNF;
+
 use nibli_types::ast as flat;
 use nibli_types::error::NibliError;
 

@@ -1073,6 +1073,7 @@ dependencies = [
  "nibli-types",
  "serde_json",
  "smuni",
+ "smuni-dictionary",
  "ureq",
  "wasm-bindgen",
  "wasm-bindgen-test",

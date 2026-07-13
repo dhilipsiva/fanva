@@ -43,7 +43,7 @@ tool-free on the local gates and flags the outcome `degraded`.
 |---|---|
 | `agent` | `translate_agentic` — the outer self-correcting loop, `Outcome`/`Attempt` trace |
 | `gates` | `GateError`, `local_gates`, `validate`, `validate_kb`, the camxes `official_gate`, `feedback_for` |
-| `llm` | `Chat`/`ToolChat` seams, 5-provider request/response shaping, `HttpChat` (wasm), `LOJBAN_SYSTEM_PROMPT` |
+| `llm` | `Chat`/`ToolChat` seams, 5-provider request/response shaping, `HttpChat` (wasm), the grammar-grounded `LOJBAN_SYSTEM_PROMPT` (grammar block embedded from `gerna::GRAMMAR_EBNF`) |
 | `mcp` | `McpClient` — Streamable-HTTP JSON-RPC jbotci client (via the proxy), `tersmu` wrapper |
 | `tools` | the jbotci tool loop (`run_llm_tool_loop`), `ToolCallTrace` |
 | `verify` | the fresh-context semantic verification turn (back-translation + judge prompt + verdict parsing) |

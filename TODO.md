@@ -35,15 +35,12 @@ when it lands.
   full dict): Gemini 83%→100%, Sarvam 100%, NVIDIA-8b 79% (grammar cases fixed, net
   bounded by vocabulary). Remaining: measure **Anthropic + OpenAI** (no keys yet) and
   **OpenRouter** (its free tier is capped at 8 req/min → 0 rows; needs credits or
-  pacing); then iterate. For the weak-model vocabulary ceiling, the lever is the
-  *Ground the system prompt in the grammar + dictionary* item below, not more few-shots.
-- **Ground the system prompt in the grammar + dictionary** *(technique ported
-  from nibli's Klaro-side plan)* — instead of hand-curated few-shots only,
-  derive the prompt's grammar-fragment cheat-sheet from gerna's own EBNF
-  doc-comment (`gerna/src/grammar.rs`) and the supported-vocabulary surface
-  from `smuni-dictionary`, so the prompt can't drift from what the gates
-  accept. The prompt-guard test already pins example validity in both
-  dictionary modes.
+  pacing); then iterate. The prompt's grammar is now embedded from `gerna::GRAMMAR_EBNF`
+  (drift-proof) and its example vocabulary is drift-guarded against `smuni-dictionary`;
+  the remaining lever for the weak-model vocabulary ceiling is injecting a
+  *source-relevant* vocabulary subset into the prompt at request time (nibli's Option C —
+  not done; needs English→gloss matching, and `system_prompt()` is already a runtime
+  builder so it's a natural extension).
 
 ## gerna / smuni backlog *(from nibli)*
 
