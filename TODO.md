@@ -44,16 +44,18 @@ when it lands.
 
 ## gerna / smuni backlog *(from nibli)*
 
-- **GIhA shared-head: handle the fail-closed corners** — the `Sentence::SharedHead`
-  fix (quantified/description-head GIhA binds ONE witness) fails closed on three
-  sub-shapes it doesn't model: a connected sumti (`.e`/`.a`) in the shared HEAD
-  (rejected in gerna `head_has_connective`), and a BAI modal or connected sumti in a
-  shared-head TAIL (rejected in smuni `compile_shared_head`/`build_giha_branch`).
-  Handle them (distribute the shared-head unit / model the modal) to lift the last
-  `.i je` restate requirement. Low priority — all fail closed (sound, not a silent
-  wrong answer). *(The determinism-corpus GIhA + negative-conjunct lines are now
-  seeded there for the fuzzer, and pinned under camxes in
-  `fanva-verify/tests/parser_differential.rs` + gerna's negative-conjunct test.)*
+- **GIhA shared-head: one residual fail-closed shape** — the four fail-closed
+  corners (a BAI modal in the shared head / in a tail; a connected sumti `.e`/`.a`
+  in a tail / in the shared head) are now compiled — the head-connected case via a
+  gerna parse-time desugar to `Connected(SharedHead, SharedHead)`, the rest in
+  smuni (`apply_modal_entries` / `distribute_connected_branch`). ONE narrower shape
+  still fails closed (sound): a connected sumti *under* a BAI modal in the shared
+  head — `head_has_connective` deliberately doesn't recurse `ModalTagged`, so
+  `compile_shared_head` rejects it with a precise error. Extensible later by
+  recursing the desugar through `ModalTagged`. Very low priority — obscure and
+  sound. *(The determinism-corpus GIhA + negative-conjunct lines are seeded there
+  for the fuzzer, and pinned under camxes in
+  `fanva-verify/tests/parser_differential.rs`.)*
 
 ## Infrastructure
 

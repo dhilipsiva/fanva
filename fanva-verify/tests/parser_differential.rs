@@ -74,6 +74,16 @@ fn gerna_accepted_sentences_are_camxes_parseable() {
         // sentence `.i je` with a bridi-negated right operand (P ∧ ¬Q).
         "lo prenu cu bajra gi'e citka gi'e sipna",
         "lo gerku cu barda gi'enai bajra",
+        // The four shared-head fail-closed corners, now compiled (GIhA full fix): a
+        // BAI modal in the shared head / in a tail, and a connected sumti (.e/.a) in
+        // a tail / in the shared head (the whole-unit desugar). gerna accepts these,
+        // so this gate must confirm they are camxes-std-valid Lojban.
+        "lo gerku ri'a mi cu klama gi'e bajra",
+        "lo gerku cu klama gi'e bajra ri'a mi",
+        "lo gerku cu klama gi'e citka lo plise .e lo badna",
+        "lo gerku cu klama gi'e citka lo plise .a lo badna",
+        "lo gerku .e lo mlatu cu klama gi'e citka",
+        "lo gerku fe mi .e do cu klama gi'e citka",
         "mi klama .i je mi na citka",
         "mi klama gi'e na citka",
         "mi na klama gi'e na citka",

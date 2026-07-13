@@ -203,50 +203,11 @@ impl SemanticCompiler {
 
         let mut final_form = self.apply_selbri(bridi.relation, &args, selbris, sumtis, sentences);
 
-        for (modal_tag, tagged_term, modal_quants) in modal_entries {
-            markers.extend(modal_quants.into_iter().map(ScopeMarker::Desc));
-
-            let (modal_gismu, modal_arity) = match &modal_tag {
-                ModalTag::Fixed(bai) => {
-                    let gismu = Self::bai_to_gismu(bai);
-                    let arity = JbovlasteSchema::get_arity_or_default(gismu);
-                    (self.interner.get_or_intern(gismu), arity)
-                }
-                ModalTag::Fio(selbri_id) => {
-                    let name = self.get_selbri_head_name(*selbri_id, selbris);
-                    let arity = self.get_selbri_arity(*selbri_id, selbris);
-                    (self.interner.get_or_intern(name), arity)
-                }
-            };
-
-            // FAIL CLOSED: a modal relates its tagged sumti (the modal selbri's x1)
-            // to the main bridi's x1 (its x2), so the modal selbri needs at least 2
-            // places. A 1-place selbri has no x2 to carry the main-bridi link — only
-            // reachable via `fi'o` over an arity-1 selbri (every BAI gismu is
-            // arity >= 2). Silently dropping `main_x1` loses meaning, so reject.
-            if modal_arity < 2 {
-                let modal_name = self.interner.resolve(&modal_gismu).to_string();
-                self.errors.push(format!(
-                    "Modal tag `{}` maps to a {}-place selbri, but a modal needs at \
-                     least 2 places (x1 = the tag's own sumti, x2 = the main bridi's \
-                     x1 link); the main bridi's x1 cannot be carried.",
-                    modal_name, modal_arity
-                ));
-                continue;
-            }
-
-            let main_x1 = args.first().cloned().unwrap_or(LogicalTerm::Unspecified);
-            let mut modal_args = vec![LogicalTerm::Unspecified; modal_arity];
-            modal_args[0] = tagged_term;
-            modal_args[1] = main_x1;
-
-            let modal_form = LogicalForm::Predicate {
-                relation: modal_gismu,
-                args: modal_args,
-            };
-
-            final_form = LogicalForm::And(Box::new(final_form), Box::new(modal_form));
-        }
+        // Materialise BAI/fi'o modals as conjoined predicates linking each modal's
+        // own sumti to this bridi's x1 (see `apply_modal_entries`).
+        let main_x1 = args.first().cloned().unwrap_or(LogicalTerm::Unspecified);
+        final_form =
+            self.apply_modal_entries(modal_entries, &main_x1, final_form, &mut markers, selbris);
 
         // Conjoin rel clauses attached to non-quantifier sumti (la names, le
         // descriptions, pro-sumti) into the bridi matrix. These were
@@ -383,6 +344,68 @@ impl SemanticCompiler {
         }
 
         final_form
+    }
+
+    /// Materialise BAI/`fi'o` modal entries as modal predicates conjoined onto
+    /// `form`. Each modal's selbri relates its own tagged sumti (x1) to `main_x1`
+    /// (its x2), so a modal needs arity >= 2 — a 1-place selbri fails closed
+    /// (dropping the link would lose meaning). Any description quantifiers the
+    /// modal carried (`ri'a lo broda`) are pushed onto `markers`, so the caller's
+    /// reverse fold binds them AROUND the modal predicate (inside the eventual
+    /// scope). Shared by `compile_bridi`, `compile_shared_head`, and
+    /// `build_giha_branch` so all three treat modals identically.
+    fn apply_modal_entries(
+        &mut self,
+        entries: Vec<(ModalTag, LogicalTerm, Vec<QuantifierEntry>)>,
+        main_x1: &LogicalTerm,
+        mut form: LogicalForm,
+        markers: &mut Vec<ScopeMarker>,
+        selbris: &[Selbri],
+    ) -> LogicalForm {
+        for (modal_tag, tagged_term, modal_quants) in entries {
+            markers.extend(modal_quants.into_iter().map(ScopeMarker::Desc));
+
+            let (modal_gismu, modal_arity) = match &modal_tag {
+                ModalTag::Fixed(bai) => {
+                    let gismu = Self::bai_to_gismu(bai);
+                    let arity = JbovlasteSchema::get_arity_or_default(gismu);
+                    (self.interner.get_or_intern(gismu), arity)
+                }
+                ModalTag::Fio(selbri_id) => {
+                    let name = self.get_selbri_head_name(*selbri_id, selbris);
+                    let arity = self.get_selbri_arity(*selbri_id, selbris);
+                    (self.interner.get_or_intern(name), arity)
+                }
+            };
+
+            // FAIL CLOSED: a modal relates its tagged sumti (the modal selbri's x1)
+            // to the main bridi's x1 (its x2), so the modal selbri needs at least 2
+            // places. A 1-place selbri has no x2 to carry the main-bridi link — only
+            // reachable via `fi'o` over an arity-1 selbri (every BAI gismu is
+            // arity >= 2). Silently dropping `main_x1` loses meaning, so reject.
+            if modal_arity < 2 {
+                let modal_name = self.interner.resolve(&modal_gismu).to_string();
+                self.errors.push(format!(
+                    "Modal tag `{}` maps to a {}-place selbri, but a modal needs at \
+                     least 2 places (x1 = the tag's own sumti, x2 = the main bridi's \
+                     x1 link); the main bridi's x1 cannot be carried.",
+                    modal_name, modal_arity
+                ));
+                continue;
+            }
+
+            let mut modal_args = vec![LogicalTerm::Unspecified; modal_arity];
+            modal_args[0] = tagged_term;
+            modal_args[1] = main_x1.clone();
+
+            let modal_form = LogicalForm::Predicate {
+                relation: modal_gismu,
+                args: modal_args,
+            };
+
+            form = LogicalForm::And(Box::new(form), Box::new(modal_form));
+        }
+        form
     }
 
     /// Walk a compiled `LogicalForm` collecting free `da`/`de`/`di` logic
@@ -649,11 +672,14 @@ impl SemanticCompiler {
     /// distribute its witness over the conjoined tails, so
     /// `lo terdi cu na se tarmi gi'e kunti` yields
     /// `∃v.(terdi(v) ∧ (¬(∃e.tarmi(e) ∧ tarmi_x2(e,v)) ∧ ∃e2.(kunti(e2) ∧ kunti_x1(e2,v))))`
-    /// — ONE shared witness, not two disjoint ones. Constant heads never reach here
-    /// (the parser keeps them on the repeated-head `.i je` desugar). Fails closed on
-    /// the rare sub-corners this focused path does not model (a BAI modal, or a
-    /// connected sumti in a tail); those were rejected entirely before this fix, so
-    /// failing closed here is a strict improvement, never a regression.
+    /// — ONE shared witness, not two disjoint ones. Handles a BAI modal in the head
+    /// (conjoined once, keyed to the head x1) or in a tail, and a connected sumti in
+    /// a tail (distributed via `distribute_connected_branch`). A CONSTANT head can
+    /// also reach here: the corner-4 parse-time desugar routes each operand of a
+    /// connected head (e.g. `la .alis. .e lo gerku …`) through here, and a constant
+    /// head simply has no witness to bind (equivalent to the old repeated-head
+    /// desugar). Still fails closed — soundly — on a connected sumti UNDER a head BAI
+    /// modal (`head_has_connective` deliberately does not recurse `ModalTagged`).
     fn compile_shared_head(
         &mut self,
         head: &Bridi,
@@ -663,12 +689,13 @@ impl SemanticCompiler {
         sentences: &[Sentence],
     ) -> LogicalForm {
         // 1. Resolve the SHARED head terms ONCE: positioned args (by place), the
-        //    head's scope markers (the `lo`/`da` witness), and its surface-captured
-        //    bare vars. A BAI modal in a shared head is not modeled — fail closed.
+        //    head's scope markers (the `lo`/`da` witness), its surface-captured
+        //    bare vars, and any BAI modals (collected, conjoined once below).
         let mut head_positioned: Vec<(usize, LogicalTerm)> = Vec::new();
         let mut head_markers: Vec<ScopeMarker> = Vec::new();
         let mut head_introduced: std::collections::HashSet<lasso::Spur> =
             std::collections::HashSet::new();
+        let mut head_modal_entries: Vec<(ModalTag, LogicalTerm, Vec<QuantifierEntry>)> = Vec::new();
         let mut next_place: usize = 0;
         for &term_id in &head.head_terms {
             match &sumtis[term_id as usize] {
@@ -680,12 +707,30 @@ impl SemanticCompiler {
                     head_positioned.push((tag.to_index(), term));
                     next_place = tag.to_index() + 1;
                 }
-                Sumti::ModalTagged(_) => {
-                    self.errors.push(
-                        "a BAI modal in the shared head of a quantified/description GIhA \
-                         chain is not yet supported; restate as separate `.i` sentences"
-                            .to_string(),
-                    );
+                Sumti::ModalTagged((modal_tag, inner_id)) => {
+                    // A modal in the shared head applies across ALL tails — collect
+                    // it and conjoin ONCE around the combined branches below, keyed
+                    // to the head's x1, so it sits inside the shared witness. Like a
+                    // main-bridi modal it is not place-filling (no `next_place` bump).
+                    let inner = &sumtis[*inner_id as usize];
+                    if matches!(inner, Sumti::Connected(_)) {
+                        // FAIL CLOSED (sound, rare): a connected sumti UNDER a head BAI
+                        // modal (`ri'a mi .e do`) would need distributing the modal per
+                        // operand — unlike a connected sumti in a TAIL (handled here) or
+                        // a bare connected HEAD term (desugared in gerna). Give a precise
+                        // error rather than the misleading be/bei one `resolve_sumti`
+                        // emits for a connected inner.
+                        self.errors.push(
+                            "a connected sumti (.e/.a/.o/.u) inside a BAI modal in the shared \
+                             head of a GIhA chain is not supported; restate as separate `.i` \
+                             sentences"
+                                .to_string(),
+                        );
+                        continue;
+                    }
+                    let (term, quants) = self.resolve_sumti(inner, sumtis, selbris, sentences);
+                    self.record_bare_marker(&term, &mut head_introduced, &mut head_markers);
+                    head_modal_entries.push((*modal_tag, term, quants));
                 }
                 other => {
                     let (term, quants) = self.resolve_sumti(other, sumtis, selbris, sentences);
@@ -740,6 +785,23 @@ impl SemanticCompiler {
             };
         }
 
+        // 2b. Conjoin any shared-head BAI modals ONCE around the combined tails,
+        //     keyed to the head's x1 (place 0). Done BEFORE the scope fold so the
+        //     shared witness binder wraps the modal predicate; the modal's own
+        //     description quants join `head_markers` and fold innermost.
+        let head_x1 = head_positioned
+            .iter()
+            .find(|(p, _)| *p == 0)
+            .map(|(_, t)| t.clone())
+            .unwrap_or(LogicalTerm::Unspecified);
+        acc = self.apply_modal_entries(
+            head_modal_entries,
+            &head_x1,
+            acc,
+            &mut head_markers,
+            selbris,
+        );
+
         // 3. Close the SHARED head scope ONCE around the combined tails. Free-var
         //    safety net first (a head `da` reachable only via a merged predicate),
         //    excluding surface-captured head vars; then the reverse marker fold binds
@@ -776,8 +838,9 @@ impl SemanticCompiler {
     /// `tail_terms` fill the rest, then the branch's OWN scope (tail-local `lo`/`da`)
     /// closes here — but the shared head vars (in `head_introduced`) are left FREE so
     /// the caller binds them once around all tails. Per-branch `negated`/tense/
-    /// attitudinal wrap this matrix inside the shared scope. Fails closed on a BAI
-    /// modal or connected sumti in a tail (unsupported on this path).
+    /// attitudinal wrap this matrix inside the shared scope. A BAI modal in a tail is
+    /// conjoined like a main-bridi modal; a connected sumti in a tail distributes the
+    /// branch across the operands (see `distribute_connected_branch`).
     #[allow(clippy::too_many_arguments)]
     fn build_giha_branch(
         &mut self,
@@ -793,6 +856,27 @@ impl SemanticCompiler {
         sumtis: &[Sumti],
         sentences: &[Sentence],
     ) -> LogicalForm {
+        // A connected sumti (`.e`/`.a`/…) in this branch's tail terms — bare or under
+        // a place tag / BAI modal — distributes the whole branch across the operands
+        // (each seeded with the SAME shared head args), joined by the connective, so
+        // the shared witness is still bound ONCE by the caller. Recurses to peel any
+        // further connectives, mirroring `compile_bridi`'s top-level distribution.
+        if let Some(split) = Self::find_connected_term(tail_terms, sumtis) {
+            return self.distribute_connected_branch(
+                head_positioned,
+                head_next_place,
+                relation,
+                tail_terms,
+                split,
+                negated,
+                tense,
+                attitudinal,
+                head_introduced,
+                selbris,
+                sumtis,
+                sentences,
+            );
+        }
         let target_arity = self.get_selbri_arity(relation, selbris);
         let mut positioned: Vec<Option<LogicalTerm>> = vec![None; target_arity];
 
@@ -816,8 +900,14 @@ impl SemanticCompiler {
 
         // Position this branch's own tail terms after the head places.
         let mut markers: Vec<ScopeMarker> = Vec::new();
-        let mut introduced: std::collections::HashSet<lasso::Spur> =
-            std::collections::HashSet::new();
+        // SEED with the shared head's introduced vars: a bare `da`/`de`/`di` reused
+        // from the shared head into this tail (`da gerku gi'e citka da`) must NOT be
+        // re-marked `Bare` and re-bound by this branch's own ∃ fold — that would
+        // shadow the caller's shared witness and split ONE witness into two disjoint
+        // ∃ (the exact wrong-TRUE the shared head exists to prevent). Pre-seeding makes
+        // `record_bare_marker` skip such a var here so the caller binds it once.
+        let mut introduced: std::collections::HashSet<lasso::Spur> = head_introduced.clone();
+        let mut modal_entries: Vec<(ModalTag, LogicalTerm, Vec<QuantifierEntry>)> = Vec::new();
         let mut next_place = head_next_place;
         for &term_id in tail_terms {
             match &sumtis[term_id as usize] {
@@ -837,10 +927,22 @@ impl SemanticCompiler {
                         ));
                     }
                 }
-                Sumti::ModalTagged(_) | Sumti::Connected(_) => {
+                Sumti::ModalTagged((modal_tag, inner_id)) => {
+                    // A modal in a tail links its own sumti to THIS branch's x1 (the
+                    // seeded shared head arg) — collect it and conjoin after the
+                    // matrix, exactly like a main-bridi modal. Not place-filling.
+                    let inner = &sumtis[*inner_id as usize];
+                    let (term, quants) = self.resolve_sumti(inner, sumtis, selbris, sentences);
+                    self.record_bare_marker(&term, &mut introduced, &mut markers);
+                    modal_entries.push((*modal_tag, term, quants));
+                }
+                Sumti::Connected(_) => {
+                    // Unreachable in practice: `find_connected_term` intercepts a
+                    // connected tail term (bare or wrapped) at the top of the function
+                    // and distributes it. Kept as a defensive fail-closed.
                     self.errors.push(
-                        "a BAI modal or connected sumti (.e/.a/.o/.u) in a shared-head \
-                         GIhA tail is not yet supported; restate as separate `.i` sentences"
+                        "a connected sumti (.e/.a/.o/.u) in a shared-head GIhA tail \
+                         could not be distributed; restate as separate `.i` sentences"
                             .to_string(),
                     );
                 }
@@ -864,6 +966,12 @@ impl SemanticCompiler {
             .map(|slot| slot.unwrap_or(LogicalTerm::Unspecified))
             .collect();
         let mut form = self.apply_selbri(relation, &args, selbris, sumtis, sentences);
+
+        // Conjoin any tail BAI modals, keyed to this branch's x1 (the seeded shared
+        // head arg). Done before the branch scope fold so a tail modal's own quants
+        // fold innermost, mirroring `compile_bridi`.
+        let branch_x1 = args.first().cloned().unwrap_or(LogicalTerm::Unspecified);
+        form = self.apply_modal_entries(modal_entries, &branch_x1, form, &mut markers, selbris);
 
         // Close this branch's OWN scope (tail-local `lo`/`da`), leaving the shared
         // head vars free. The free-var net collects only bare `da`/`de`/`di`; it and
@@ -909,5 +1017,96 @@ impl SemanticCompiler {
             None => {}
         }
         form
+    }
+
+    /// Distribute a connected sumti in a GIhA branch's tail across its operands.
+    /// The branch-level analog of `distribute_connected`: instead of rebuilding a
+    /// `Bridi` and recursing through `compile_bridi` (which would re-quantify the
+    /// shared witness), it substitutes each operand into `tail_terms` and recurses
+    /// through `build_giha_branch` — seeding the SAME shared head args both times,
+    /// so each operand branch leaves the shared witness FREE and the caller binds it
+    /// once around the join. Preserves the operand's place-tag / BAI-modal wrapper
+    /// (via the extended sumti buffer) and re-applies the branch's `negated`/tense/
+    /// attitudinal per operand, exactly as `distribute_connected` does.
+    #[allow(clippy::too_many_arguments)]
+    fn distribute_connected_branch(
+        &mut self,
+        head_positioned: &[(usize, LogicalTerm)],
+        head_next_place: usize,
+        relation: u32,
+        tail_terms: &[u32],
+        split: ConnectedSplit,
+        negated: bool,
+        tense: Option<Tense>,
+        attitudinal: Option<Attitudinal>,
+        head_introduced: &std::collections::HashSet<lasso::Spur>,
+        selbris: &[Selbri],
+        sumtis: &[Sumti],
+        sentences: &[Sentence],
+    ) -> LogicalForm {
+        // Synthesise tag/modal-wrapped operands into an extended sumti buffer — a
+        // bare connected sumti reuses its operand ids unchanged (identical to
+        // `distribute_connected`).
+        let mut ext: Vec<Sumti> = sumtis.to_vec();
+        let (left_slot, right_slot) = match split.wrapper {
+            ConnWrapper::Bare => (split.left_id, split.right_id),
+            ConnWrapper::Place(tag) => {
+                let base = ext.len() as u32;
+                ext.push(Sumti::Tagged((tag, split.left_id)));
+                ext.push(Sumti::Tagged((tag, split.right_id)));
+                (base, base + 1)
+            }
+            ConnWrapper::Modal(modal) => {
+                let base = ext.len() as u32;
+                ext.push(Sumti::ModalTagged((modal, split.left_id)));
+                ext.push(Sumti::ModalTagged((modal, split.right_id)));
+                (base, base + 1)
+            }
+        };
+
+        // `split.term_pos` is relative to this branch's own `tail_terms`.
+        let substitute = |replacement_id: u32| -> Vec<u32> {
+            let mut t = tail_terms.to_vec();
+            t[split.term_pos] = replacement_id;
+            t
+        };
+        let left_terms = substitute(left_slot);
+        let right_terms = substitute(right_slot);
+
+        let left_form = self.build_giha_branch(
+            head_positioned,
+            head_next_place,
+            relation,
+            &left_terms,
+            negated,
+            tense,
+            attitudinal,
+            head_introduced,
+            selbris,
+            &ext,
+            sentences,
+        );
+        let mut right_form = self.build_giha_branch(
+            head_positioned,
+            head_next_place,
+            relation,
+            &right_terms,
+            negated,
+            tense,
+            attitudinal,
+            head_introduced,
+            selbris,
+            &ext,
+            sentences,
+        );
+        if split.right_negated {
+            right_form = LogicalForm::Not(Box::new(right_form));
+        }
+        match split.connective {
+            Connective::Je => LogicalForm::And(Box::new(left_form), Box::new(right_form)),
+            Connective::Ja => LogicalForm::Or(Box::new(left_form), Box::new(right_form)),
+            Connective::Jo => LogicalForm::Biconditional(Box::new(left_form), Box::new(right_form)),
+            Connective::Ju => LogicalForm::Xor(Box::new(left_form), Box::new(right_form)),
+        }
     }
 }

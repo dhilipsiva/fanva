@@ -4191,6 +4191,152 @@ fn test_giha_quantified_or_description_head_parses_to_shared_head() {
 }
 
 #[test]
+fn test_giha_connected_head_desugars_to_connected_shared_heads() {
+    // `lo gerku .e lo mlatu cu klama gi'e citka` — a connected sumti in the SHARED
+    // head distributes the whole GIhA unit: it desugars to
+    //   Connected(SharedHead(lo gerku, [gi'e citka]), .e, SharedHead(lo mlatu, [gi'e citka])),
+    // each operand a SharedHead binding its OWN witness across the shared tails. The
+    // two-witness FOL is pinned end-to-end by fanva's `giha_corners` tests; here we
+    // check the parse shape reuses the proven Connected + SharedHead lowering.
+    let arena = Bump::new();
+    let p = parse_ok(
+        &[
+            cmavo("lo"),
+            gismu("gerku"),
+            pause(),
+            cmavo("e"),
+            cmavo("lo"),
+            gismu("mlatu"),
+            cmavo("cu"),
+            gismu("klama"),
+            cmavo("gi'e"),
+            gismu("citka"),
+        ],
+        &arena,
+    );
+    let (left, right) = match &p.sentences[0] {
+        Sentence::Connected {
+            connective,
+            left,
+            right,
+        } => {
+            assert!(
+                matches!(
+                    connective,
+                    SentenceConnective::Afterthought {
+                        connective: Connective::Je,
+                        right_negated: false,
+                        ..
+                    }
+                ),
+                "the head `.e` must lower to an afterthought Je: {connective:?}"
+            );
+            (&**left, &**right)
+        }
+        other => panic!("expected Connected(SharedHead, SharedHead), got {other:?}"),
+    };
+    for (side, sentence, restrictor) in [("left", left, "gerku"), ("right", right, "mlatu")] {
+        let Sentence::SharedHead { head, tails } = sentence else {
+            panic!("{side} operand must be a SharedHead, got {sentence:?}");
+        };
+        match &head.selbri {
+            Selbri::Root(n) => assert_eq!(*n, "klama", "{side} head selbri must be klama"),
+            other => panic!("{side} head selbri must be klama, got {other:?}"),
+        }
+        match &head.head_terms[0] {
+            Sumti::Description {
+                gadri: Gadri::Lo,
+                inner,
+            } => match &**inner {
+                Selbri::Root(n) => {
+                    assert_eq!(
+                        *n, restrictor,
+                        "{side} operand must re-resolve `lo {restrictor}`"
+                    )
+                }
+                other => panic!("{side} restrictor must be a root selbri, got {other:?}"),
+            },
+            other => panic!("{side} head must be a `lo` description, got {other:?}"),
+        }
+        assert_eq!(tails.len(), 1, "{side} shares the single gi'e tail");
+        assert_eq!(tails[0].connective, Connective::Je);
+        match &tails[0].selbri {
+            Selbri::Root(n) => assert_eq!(*n, "citka", "{side} tail selbri must be citka"),
+            other => panic!("{side} tail selbri must be citka, got {other:?}"),
+        }
+    }
+}
+
+#[test]
+fn test_giha_connected_head_desugar_threads_connective_and_nai() {
+    // The head-connective desugar must thread the ACTUAL sumti connective and `nai`
+    // into the afterthought, not hardcode Je/no-negation: `.a` -> Ja, `.e nai` ->
+    // right_negated. (The `.e` case is covered by the test above; a Je<->Ja swap or a
+    // dropped `nai` would otherwise ship green.)
+    for (tokens, conn, negated) in [
+        (
+            vec![
+                cmavo("lo"),
+                gismu("gerku"),
+                pause(),
+                cmavo("a"),
+                cmavo("lo"),
+                gismu("mlatu"),
+                cmavo("cu"),
+                gismu("klama"),
+                cmavo("gi'e"),
+                gismu("citka"),
+            ],
+            Connective::Ja,
+            false,
+        ),
+        (
+            vec![
+                cmavo("lo"),
+                gismu("gerku"),
+                pause(),
+                cmavo("e"),
+                cmavo("nai"),
+                cmavo("lo"),
+                gismu("mlatu"),
+                cmavo("cu"),
+                gismu("klama"),
+                cmavo("gi'e"),
+                gismu("citka"),
+            ],
+            Connective::Je,
+            true,
+        ),
+    ] {
+        let arena = Bump::new();
+        let p = parse_ok(&tokens, &arena);
+        match &p.sentences[0] {
+            Sentence::Connected {
+                connective:
+                    SentenceConnective::Afterthought {
+                        left_negated: false,
+                        connective,
+                        right_negated,
+                    },
+                left,
+                right,
+            } => {
+                assert_eq!(*connective, conn, "the head connective must thread through");
+                assert_eq!(
+                    *right_negated, negated,
+                    "the head `nai` must thread through"
+                );
+                assert!(matches!(&**left, Sentence::SharedHead { .. }));
+                assert!(matches!(&**right, Sentence::SharedHead { .. }));
+            }
+            other => {
+                panic!("expected Connected(Afterthought, SharedHead, SharedHead), got {other:?}")
+            }
+        }
+    }
+}
+
+#[test]
 fn test_giha_fused_nai_token_negates_right() {
     // The fused compound (one Cmavo token, from the lexer's
     // reclassify_fused_giha_nai pass) must negate the right tail exactly like

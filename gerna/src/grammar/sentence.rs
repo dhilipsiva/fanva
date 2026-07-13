@@ -176,18 +176,116 @@ impl<'a, 'arena> Parser<'a, 'arena> {
             return Ok(sentence);
         }
         // Quantified/description head → SharedHead (bind the witness once). A
-        // connected sumti in the shared head would need distributing the whole unit
-        // — not yet supported; fail closed (it was rejected before too).
-        if bridi.head_terms.iter().any(head_has_connective) {
-            return Err(self.error(
-                "a GIhA bridi-tail with a connected sumti (.e/.a/.o/.u) in the shared \
-                 head is not yet supported; restate as separate `.i je` sentences",
-            ));
+        // connected sumti (`.e`/`.a`/…) in the shared head distributes the WHOLE
+        // unit across the operands: CLL expands a sumti connective into repeated
+        // bridi, so `(lo A .e lo B) broda gi'e brode` becomes
+        // `(lo A broda gi'e brode) .ije (lo B broda gi'e brode)` — each a SharedHead
+        // binding its own witness. `desugar_shared_head_connective` peels one
+        // connective per level via the proven Connected + SharedHead path.
+        let tails = self.arena.alloc_slice_fill_iter(tails);
+        Ok(self.desugar_shared_head_connective(bridi, tails))
+    }
+
+    /// Distribute any connected sumti (`.e`/`.a`/…) in a GIhA shared head across its
+    /// operands, one connective per level, bottoming out at `Sentence::SharedHead`
+    /// once the head is connective-free. `(A .e B) broda gi'e brode` →
+    /// `Connected(SharedHead(A, tails), .e, SharedHead(B, tails))`. A `lo` description
+    /// in a DIFFERENT head term is re-resolved per operand — CLL-faithful, since a
+    /// sumti connective repeats the whole bridi — which falls out of running the proven
+    /// `SharedHead` compile on each cloned head. (A bare `da` in a different term
+    /// likewise yields two `∃da`, matching the pre-existing `distribute_connected`
+    /// baseline for `da broda lo A .e lo B`; the CLL reading there is itself debatable.)
+    /// The `tails` slice is shared by reference across operands (no clone).
+    fn desugar_shared_head_connective(
+        &self,
+        head: Bridi<'arena>,
+        tails: &'arena [GihaTail<'arena>],
+    ) -> Sentence<'arena> {
+        let head_terms = head.head_terms;
+        match head_terms.iter().position(head_has_connective) {
+            None => Sentence::SharedHead {
+                head: self.arena.alloc(head),
+                tails,
+            },
+            Some(pos) => {
+                let (connective, right_negated, left_op, right_op) =
+                    self.split_head_connective(&head_terms[pos]);
+                let left_head = self.clone_head_replacing(&head, pos, left_op);
+                let right_head = self.clone_head_replacing(&head, pos, right_op);
+                Sentence::Connected {
+                    connective: SentenceConnective::Afterthought {
+                        left_negated: false,
+                        connective,
+                        right_negated,
+                    },
+                    left: self
+                        .arena
+                        .alloc(self.desugar_shared_head_connective(left_head, tails)),
+                    right: self
+                        .arena
+                        .alloc(self.desugar_shared_head_connective(right_head, tails)),
+                }
+            }
         }
-        Ok(Sentence::SharedHead {
-            head: self.arena.alloc(bridi),
-            tails: self.arena.alloc_slice_fill_iter(tails),
-        })
+    }
+
+    /// Peel any place-tag wrappers off a connected head term and split it into its
+    /// connective, right-negation, and two operands — each re-wrapped with the same
+    /// place tags so `fe (A .e B)` distributes to `fe A` / `fe B` (the arena analog
+    /// of smuni's `ConnWrapper::Place`). `head_has_connective` guarantees a
+    /// `Connected` sits under (at most) `Tagged` wrappers.
+    fn split_head_connective(
+        &self,
+        s: &'arena Sumti<'arena>,
+    ) -> (
+        Connective,
+        bool,
+        &'arena Sumti<'arena>,
+        &'arena Sumti<'arena>,
+    ) {
+        match s {
+            Sumti::Connected {
+                left,
+                connective,
+                right_negated,
+                right,
+            } => (*connective, *right_negated, left, right),
+            Sumti::Tagged(tag, inner) => {
+                let (connective, right_negated, left, right) = self.split_head_connective(inner);
+                (
+                    connective,
+                    right_negated,
+                    self.arena.alloc(Sumti::Tagged(*tag, left)),
+                    self.arena.alloc(Sumti::Tagged(*tag, right)),
+                )
+            }
+            _ => unreachable!("split_head_connective on a non-connected head term"),
+        }
+    }
+
+    /// Clone a head `Bridi` with its head term at `pos` replaced by `operand`.
+    /// Shallow: reuses the selbri (Clone is a shallow `&'arena`-ref copy) and the
+    /// `tail_terms` slice by reference; only `head_terms` is rebuilt into the arena.
+    fn clone_head_replacing(
+        &self,
+        head: &Bridi<'arena>,
+        pos: usize,
+        operand: &'arena Sumti<'arena>,
+    ) -> Bridi<'arena> {
+        let head_terms = self.arena.alloc_slice_fill_iter(
+            head.head_terms
+                .iter()
+                .enumerate()
+                .map(|(i, s)| if i == pos { operand.clone() } else { s.clone() }),
+        );
+        Bridi {
+            selbri: head.selbri.clone(),
+            head_terms,
+            tail_terms: head.tail_terms,
+            negated: head.negated,
+            tense: head.tense,
+            attitudinal: head.attitudinal,
+        }
     }
 
     /// Parse one GIhA bridi-tail: `[na] selbri tail-terms [vau]`, into a
@@ -309,9 +407,9 @@ fn giha_safe_head(s: &Sumti) -> bool {
     }
 }
 
-/// True if a GIhA shared-head term is (or wraps) a connected sumti (`.e`/`.a`/…).
-/// Distributing a connected sumti across a whole shared-head GIhA unit is not yet
-/// supported, so such (non-constant) heads fail closed (restate as `.i je`).
+/// True if a GIhA shared-head term is (or wraps, under a place tag) a connected
+/// sumti (`.e`/`.a`/…). Drives `desugar_shared_head_connective`, which distributes
+/// such a head across the operands, one connective per level.
 fn head_has_connective(s: &Sumti) -> bool {
     match s {
         Sumti::Connected { .. } => true,

@@ -4451,6 +4451,26 @@ mod tests {
         }
     }
 
+    /// True if an `Or` appears anywhere in the subtree.
+    fn subtree_has_or(form: &LogicalForm) -> bool {
+        match form {
+            LogicalForm::Or(_, _) => true,
+            LogicalForm::Not(b)
+            | LogicalForm::Exists(_, b)
+            | LogicalForm::ForAll(_, b)
+            | LogicalForm::Past(b)
+            | LogicalForm::Present(b)
+            | LogicalForm::Future(b)
+            | LogicalForm::Obligatory(b)
+            | LogicalForm::Permitted(b) => subtree_has_or(b),
+            LogicalForm::Count { body, .. } => subtree_has_or(body),
+            LogicalForm::And(l, r) | LogicalForm::Biconditional(l, r) | LogicalForm::Xor(l, r) => {
+                subtree_has_or(l) || subtree_has_or(r)
+            }
+            LogicalForm::Predicate { .. } => false,
+        }
+    }
+
     #[test]
     fn giha_shared_head_da_binds_one_witness() {
         // `da klama gi'e citka` — the shared `da` binds ONE existential across both
@@ -4639,6 +4659,380 @@ mod tests {
         let b1 = get_pred_args(&form, "barda_x1", &compiler).expect("barda_x1");
         let b2 = get_pred_args(&form, "bajra_x1", &compiler).expect("bajra_x1");
         assert_eq!(b1[1], b2[1], "both tails must share the witness");
+        assert!(free_vars(&form, &compiler).is_empty());
+    }
+
+    // ─── Shared-head GIhA: the four fail-closed corners, now handled ───────────
+
+    #[test]
+    fn giha_shared_head_bai_modal_in_head() {
+        // `lo gerku ri'a mi cu klama gi'e bajra` — a BAI modal in the SHARED head
+        // applies ONCE across both tails:
+        //   ∃v.(gerku(v) ∧ ((klama(v) ∧ bajra(v)) ∧ rinka(mi, v))).
+        // The modal links `mi` (its x1) to the shared witness (its x2) and sits INSIDE
+        // the shared ∃; it must not be duplicated per tail.
+        let selbris = vec![
+            Selbri::Root("klama".to_string()),
+            Selbri::Root("bajra".to_string()),
+            Selbri::Root("gerku".to_string()),
+        ];
+        let sumtis = vec![
+            Sumti::Description((Gadri::Lo, 2)), // 0: lo gerku
+            Sumti::ProSumti("mi".to_string()),  // 1: mi
+            Sumti::ModalTagged((ModalTag::Fixed(BaiTag::Ria), 1)), // 2: ri'a mi
+        ];
+        let head = Bridi {
+            relation: 0,
+            head_terms: vec![0, 2], // lo gerku + ri'a mi
+            tail_terms: vec![],
+            negated: false,
+            tense: None,
+            attitudinal: None,
+        };
+        let tails = vec![GihaTail {
+            connective: Connective::Je,
+            right_negated: false,
+            relation: 1,
+            tail_terms: vec![],
+            negated: false,
+        }];
+        let (form, compiler) = compile_shared(selbris, sumtis, head, tails);
+
+        let v = match &form {
+            LogicalForm::Exists(v, _) => resolve(&compiler, v),
+            other => panic!("expected outer ∃ over the shared witness, got {other:?}"),
+        };
+        assert_eq!(
+            count_exists_binding(&form, &v, &compiler),
+            1,
+            "the shared witness must be bound ONCE across both tails: {form:?}"
+        );
+        // The modal appears exactly once (not per tail) and links `mi` → the witness.
+        let rinka = get_all_pred_args(&form, "rinka", &compiler);
+        assert_eq!(
+            rinka.len(),
+            1,
+            "the head modal must be conjoined ONCE, got {rinka:?}"
+        );
+        assert_eq!(
+            const_str(&compiler, &rinka[0][0]),
+            "mi",
+            "rinka x1 must be `mi`"
+        );
+        assert!(
+            matches!(&rinka[0][1], LogicalTerm::Variable(s) if resolve(&compiler, s) == v),
+            "rinka x2 must be the shared witness: {:?}",
+            rinka[0][1]
+        );
+        let k = get_pred_args(&form, "klama_x1", &compiler).expect("klama_x1");
+        let b = get_pred_args(&form, "bajra_x1", &compiler).expect("bajra_x1");
+        assert_eq!(k[1], b[1], "both tails must share the witness");
+        assert!(matches!(&k[1], LogicalTerm::Variable(s) if resolve(&compiler, s) == v));
+        assert!(free_vars(&form, &compiler).is_empty());
+    }
+
+    #[test]
+    fn giha_shared_head_bai_modal_in_tail() {
+        // `lo gerku cu klama gi'e bajra ri'a mi` — a BAI modal in the `bajra` TAIL
+        // links its `mi` to the shared witness and is conjoined into THAT branch only
+        // (appears exactly once).
+        let selbris = vec![
+            Selbri::Root("klama".to_string()),
+            Selbri::Root("bajra".to_string()),
+            Selbri::Root("gerku".to_string()),
+        ];
+        let sumtis = vec![
+            Sumti::Description((Gadri::Lo, 2)), // 0: lo gerku
+            Sumti::ProSumti("mi".to_string()),  // 1: mi
+            Sumti::ModalTagged((ModalTag::Fixed(BaiTag::Ria), 1)), // 2: ri'a mi
+        ];
+        let head = Bridi {
+            relation: 0,
+            head_terms: vec![0], // lo gerku
+            tail_terms: vec![],
+            negated: false,
+            tense: None,
+            attitudinal: None,
+        };
+        let tails = vec![GihaTail {
+            connective: Connective::Je,
+            right_negated: false,
+            relation: 1,
+            tail_terms: vec![2], // ri'a mi, in the bajra tail
+            negated: false,
+        }];
+        let (form, compiler) = compile_shared(selbris, sumtis, head, tails);
+
+        let v = match &form {
+            LogicalForm::Exists(v, _) => resolve(&compiler, v),
+            other => panic!("expected outer ∃, got {other:?}"),
+        };
+        assert_eq!(
+            count_exists_binding(&form, &v, &compiler),
+            1,
+            "one shared witness: {form:?}"
+        );
+        let rinka = get_all_pred_args(&form, "rinka", &compiler);
+        assert_eq!(
+            rinka.len(),
+            1,
+            "the tail modal appears once (in the bajra branch only): {rinka:?}"
+        );
+        assert_eq!(const_str(&compiler, &rinka[0][0]), "mi");
+        assert!(
+            matches!(&rinka[0][1], LogicalTerm::Variable(s) if resolve(&compiler, s) == v),
+            "the tail modal must link `mi` to the shared witness"
+        );
+        let k = get_pred_args(&form, "klama_x1", &compiler).expect("klama_x1");
+        let b = get_pred_args(&form, "bajra_x1", &compiler).expect("bajra_x1");
+        assert_eq!(k[1], b[1], "both tails share the witness");
+        assert!(free_vars(&form, &compiler).is_empty());
+    }
+
+    /// Build the `lo gerku cu klama gi'e citka lo plise <conn> lo badna` shape with
+    /// the given sumti connective in the `citka` tail. selbris: 0 klama, 1 citka,
+    /// 2 gerku, 3 plise, 4 badna.
+    fn shared_head_connected_tail(
+        connective: Connective,
+        right_negated: bool,
+    ) -> (LogicalForm, SemanticCompiler) {
+        let selbris = vec![
+            Selbri::Root("klama".to_string()),
+            Selbri::Root("citka".to_string()),
+            Selbri::Root("gerku".to_string()),
+            Selbri::Root("plise".to_string()),
+            Selbri::Root("badna".to_string()),
+        ];
+        let sumtis = vec![
+            Sumti::Description((Gadri::Lo, 2)),                  // 0: lo gerku
+            Sumti::Description((Gadri::Lo, 3)),                  // 1: lo plise
+            Sumti::Description((Gadri::Lo, 4)),                  // 2: lo badna
+            Sumti::Connected((1, connective, right_negated, 2)), // 3: lo plise <conn> lo badna
+        ];
+        let head = Bridi {
+            relation: 0,
+            head_terms: vec![0], // lo gerku
+            tail_terms: vec![],
+            negated: false,
+            tense: None,
+            attitudinal: None,
+        };
+        let tails = vec![GihaTail {
+            connective: Connective::Je, // gi'e
+            right_negated: false,
+            relation: 1,         // citka
+            tail_terms: vec![3], // the connected sumti
+            negated: false,
+        }];
+        compile_shared(selbris, sumtis, head, tails)
+    }
+
+    #[test]
+    fn giha_shared_head_connected_sumti_in_tail() {
+        // `lo gerku cu klama gi'e citka lo plise .e lo badna` — a connected sumti in
+        // the `citka` tail distributes the branch: citka(v, plise) ∧ citka(v, badna),
+        // both carrying the shared gerku witness `v`, still under ONE outer ∃v.
+        let (form, compiler) = shared_head_connected_tail(Connective::Je, false);
+
+        let v = match &form {
+            LogicalForm::Exists(v, _) => resolve(&compiler, v),
+            other => panic!("expected outer ∃ over the shared witness, got {other:?}"),
+        };
+        assert_eq!(
+            count_exists_binding(&form, &v, &compiler),
+            1,
+            "the shared gerku witness must stay bound ONCE despite the tail distributing: {form:?}"
+        );
+        assert!(
+            has_pred(&form, "plise", &compiler) && has_pred(&form, "badna", &compiler),
+            "both connective operands must survive"
+        );
+        // Two citka predications, both sharing the head witness in x1.
+        let citka_x1 = get_all_pred_args(&form, "citka_x1", &compiler);
+        assert_eq!(
+            citka_x1.len(),
+            2,
+            "the `.e` tail must distribute to two citka predications: {citka_x1:?}"
+        );
+        for args in &citka_x1 {
+            assert!(
+                matches!(&args[1], LogicalTerm::Variable(s) if resolve(&compiler, s) == v),
+                "each distributed citka must carry the shared witness in x1: {args:?}"
+            );
+        }
+        // …and carrying the DISTINCT operands (plise vs badna) in x2 — a swap/dup would
+        // leave both x2 equal.
+        let citka_x2 = get_all_pred_args(&form, "citka_x2", &compiler);
+        assert_eq!(
+            citka_x2.len(),
+            2,
+            "two citka_x2, one per operand: {citka_x2:?}"
+        );
+        assert_ne!(
+            citka_x2[0][1], citka_x2[1][1],
+            "the two operands must land in DISTINCT x2 slots"
+        );
+        assert!(
+            !subtree_has_or(&form),
+            "`.e` distributes conjunctively — no Or: {form:?}"
+        );
+        assert!(free_vars(&form, &compiler).is_empty());
+    }
+
+    #[test]
+    fn giha_shared_head_connected_tail_a_is_or() {
+        // `… citka lo plise .a lo badna` — the `.a` sumti connective distributes the
+        // tail with Or, still under the single shared ∃.
+        let (form, compiler) = shared_head_connected_tail(Connective::Ja, false);
+        let v = match &form {
+            LogicalForm::Exists(v, _) => resolve(&compiler, v),
+            other => panic!("expected outer ∃, got {other:?}"),
+        };
+        assert_eq!(count_exists_binding(&form, &v, &compiler), 1);
+        assert!(
+            subtree_has_or(&form),
+            "`.a` must distribute the tail with Or: {form:?}"
+        );
+        assert_eq!(
+            get_all_pred_args(&form, "citka_x1", &compiler).len(),
+            2,
+            "both operands still produce a citka"
+        );
+        assert!(free_vars(&form, &compiler).is_empty());
+    }
+
+    #[test]
+    fn giha_shared_head_connected_tail_enai_negates_right() {
+        // `… citka lo plise .enai lo badna` — the `nai` negates the RIGHT operand
+        // (the badna branch), which sits under a Not, still under the shared ∃.
+        let (form, compiler) = shared_head_connected_tail(Connective::Je, true);
+        let v = match &form {
+            LogicalForm::Exists(v, _) => resolve(&compiler, v),
+            other => panic!("expected outer ∃, got {other:?}"),
+        };
+        assert_eq!(count_exists_binding(&form, &v, &compiler), 1);
+        assert!(
+            subtree_has_not(&form),
+            "`.enai` must negate the right operand: {form:?}"
+        );
+        assert!(
+            has_pred(&form, "badna", &compiler),
+            "the negated operand's predicate must still be present"
+        );
+        assert!(free_vars(&form, &compiler).is_empty());
+    }
+
+    #[test]
+    fn giha_shared_head_reused_var_head_and_tail_binds_once() {
+        // `da gerku gi'e citka da` ("something is a dog and eats ITSELF") — a `da`
+        // reused between the shared head (`da gerku`) and the tail (`citka da`) must be
+        // ONE witness: ∃da.(gerku(da) ∧ citka(da, da)), NOT two disjoint ∃ (the head dog
+        // decoupled from the self-eater — the exact wrong-TRUE the shared head prevents;
+        // adversarial review 2026-07-13). Regression for the `introduced =
+        // head_introduced.clone()` fix in build_giha_branch.
+        let selbris = vec![
+            Selbri::Root("gerku".to_string()),
+            Selbri::Root("citka".to_string()),
+        ];
+        let sumtis = vec![Sumti::ProSumti("da".to_string())];
+        let head = Bridi {
+            relation: 0,         // gerku
+            head_terms: vec![0], // da
+            tail_terms: vec![],
+            negated: false,
+            tense: None,
+            attitudinal: None,
+        };
+        let tails = vec![GihaTail {
+            connective: Connective::Je,
+            right_negated: false,
+            relation: 1,         // citka
+            tail_terms: vec![0], // da again — REUSED from the head
+            negated: false,
+        }];
+        let (form, compiler) = compile_shared(selbris, sumtis, head, tails);
+
+        assert_eq!(
+            count_exists_binding(&form, "da", &compiler),
+            1,
+            "the reused `da` must be bound by exactly ONE ∃, not two: {form:?}"
+        );
+        assert_eq!(
+            binder_spine(&form, &compiler).first(),
+            Some(&Binder::Exists("da".to_string())),
+            "the outermost binder must be `∃da`"
+        );
+        let g = get_pred_args(&form, "gerku_x1", &compiler).expect("gerku_x1");
+        let c1 = get_pred_args(&form, "citka_x1", &compiler).expect("citka_x1");
+        let c2 = get_pred_args(&form, "citka_x2", &compiler).expect("citka_x2");
+        assert!(matches!(&g[1], LogicalTerm::Variable(s) if resolve(&compiler, s) == "da"));
+        assert_eq!(g[1], c1[1], "gerku and citka x1 must share the witness");
+        assert_eq!(
+            c1[1], c2[1],
+            "citka must eat ITSELF — x1 and x2 are the SAME `da`"
+        );
+        assert!(free_vars(&form, &compiler).is_empty());
+    }
+
+    #[test]
+    fn giha_shared_head_modal_head_and_connected_tail() {
+        // Co-occurrence: `lo gerku ri'a mi cu klama gi'e citka lo plise .e lo badna` —
+        // a head modal AND a connected-sumti tail together. rinka appears ONCE (head
+        // modal), the citka tail distributes into two, and ALL of it shares the one
+        // gerku witness under a single ∃.
+        let selbris = vec![
+            Selbri::Root("klama".to_string()),
+            Selbri::Root("citka".to_string()),
+            Selbri::Root("gerku".to_string()),
+            Selbri::Root("plise".to_string()),
+            Selbri::Root("badna".to_string()),
+        ];
+        let sumtis = vec![
+            Sumti::Description((Gadri::Lo, 2)), // 0: lo gerku
+            Sumti::ProSumti("mi".to_string()),  // 1: mi
+            Sumti::ModalTagged((ModalTag::Fixed(BaiTag::Ria), 1)), // 2: ri'a mi
+            Sumti::Description((Gadri::Lo, 3)), // 3: lo plise
+            Sumti::Description((Gadri::Lo, 4)), // 4: lo badna
+            Sumti::Connected((3, Connective::Je, false, 4)), // 5: lo plise .e lo badna
+        ];
+        let head = Bridi {
+            relation: 0,
+            head_terms: vec![0, 2], // lo gerku + ri'a mi
+            tail_terms: vec![],
+            negated: false,
+            tense: None,
+            attitudinal: None,
+        };
+        let tails = vec![GihaTail {
+            connective: Connective::Je,
+            right_negated: false,
+            relation: 1,         // citka
+            tail_terms: vec![5], // the connected sumti
+            negated: false,
+        }];
+        let (form, compiler) = compile_shared(selbris, sumtis, head, tails);
+
+        let v = match &form {
+            LogicalForm::Exists(v, _) => resolve(&compiler, v),
+            other => panic!("expected outer ∃, got {other:?}"),
+        };
+        assert_eq!(
+            count_exists_binding(&form, &v, &compiler),
+            1,
+            "one shared witness"
+        );
+        let rinka = get_all_pred_args(&form, "rinka", &compiler);
+        assert_eq!(
+            rinka.len(),
+            1,
+            "the head modal is conjoined once: {rinka:?}"
+        );
+        assert!(matches!(&rinka[0][1], LogicalTerm::Variable(s) if resolve(&compiler, s) == v));
+        let citka_x1 = get_all_pred_args(&form, "citka_x1", &compiler);
+        assert_eq!(citka_x1.len(), 2, "the connected tail still distributes");
+        for args in &citka_x1 {
+            assert!(matches!(&args[1], LogicalTerm::Variable(s) if resolve(&compiler, s) == v));
+        }
         assert!(free_vars(&form, &compiler).is_empty());
     }
 }
