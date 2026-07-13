@@ -7,13 +7,17 @@ when it lands.
 
 ## Ship it
 
-- **Deploy fanva-ui + point the proxy at it** — pick a static host for
-  `just build-ui`'s output, then `wrangler deploy` fanva-proxy with
-  `ALLOWED_ORIGINS` set to the new origin (the deployed worker at
-  `fanva-proxy.dhilipsiva.workers.dev` still serves nibli's UI until nibli's
-  Lojban purge lands — coordinate before changing its allowed origins; local
-  dev origins belong in `.dev.vars`, never the deployed var). Done when: the
-  hosted app translates end-to-end with jbotci enabled and no CORS errors.
+- **Deploy fanva-ui at `dhilipsiva.dev/fanva` (site-repo owned)** — the fanva-side
+  deploy wiring has landed: [`DEPLOY.md`](DEPLOY.md) runbook, the
+  `redeploy-site.yml` trigger (`event_type=fanva-updated`, self-skips until
+  `SITE_DISPATCH_TOKEN` exists), and the root-relative `just build-ui` sanity build.
+  The proxy needs **no** change — the fanva origin `https://dhilipsiva.dev` is already
+  in `fanva-proxy`'s `ALLOWED_ORIGINS`. What remains is **owned by the external
+  `dhilipsiva/dhilipsiva.dev` repo session** (like voksa/nibli): the production build
+  applying the `/fanva/` base_path, hosting the bundle (with `just fetch-dict` before
+  `dx build`), and registering the `fanva-updated` dispatch handler + this repo's
+  `SITE_DISPATCH_TOKEN` secret. The live end-to-end acceptance is the *Live-key
+  end-to-end test* bullet below.
 - **Live-key end-to-end test** *(from nibli, Phase 9 residue)* — with a real
   BYO key: translate a sample, watch the trace panel show tool calls + the
   three gate chips, confirm the tersmu deep-meaning view renders, and confirm

@@ -83,6 +83,15 @@ that header and add the CORS jbotci doesn't implement. The proxy holds no
 secrets and is optional — with it unset, translation runs fully local. If
 jbotci ever enables CORS for browsers, the proxy can retire.
 
+## Deployment
+
+The hosted app lives at [`dhilipsiva.dev/fanva`](https://dhilipsiva.dev/fanva/).
+fanva-ui is a static WASM bundle with no server; the **production** build runs in
+the external `dhilipsiva/dhilipsiva.dev` site repo, so **shipping = merging to
+`main`** (which pings the site to rebuild). `just build-ui` here is only a
+local pre-merge sanity build. For the build/host model, the `/fanva/` subpath, the
+dictionary step, and the optional jbotci proxy, see [`DEPLOY.md`](DEPLOY.md).
+
 ## Conformance
 
 - **Parse-differential** (`just verify-parser`): every sentence gerna accepts
