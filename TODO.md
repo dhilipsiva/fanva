@@ -26,11 +26,17 @@ when it lands.
 
 ## Translator quality
 
-- **System-prompt convergence tuning** *(from nibli, conditional follow-on)* —
-  the current `LOJBAN_SYSTEM_PROMPT` seed is conservative and unmeasured;
-  measure first-pass validity / attempts-to-converge across the 5 providers
-  (needs live API keys) and grow the few-shot set toward the gerna ∧ smuni ∧
-  camxes intersection.
+- **System-prompt convergence tuning — measure more providers + iterate** — the
+  measurement harness (`fanva/src/bin/measure.rs`, `--features measure`; drives the
+  real loop + scores 3-gate with camxes-via-node) and a first data-driven tuning pass
+  have landed (see [`docs/convergence-measurement.md`](docs/convergence-measurement.md)):
+  added few-shots/rules for the ditransitive place structure, vowel-final cmevla, and
+  the `ko'a` pronoun, all gate-valid in both dictionary modes. First run (2026-07-13,
+  full dict): Gemini 83%→100%, Sarvam 100%, NVIDIA-8b 79% (grammar cases fixed, net
+  bounded by vocabulary). Remaining: measure **Anthropic + OpenAI** (no keys yet) and
+  **OpenRouter** (its free tier is capped at 8 req/min → 0 rows; needs credits or
+  pacing); then iterate. For the weak-model vocabulary ceiling, the lever is the
+  *Ground the system prompt in the grammar + dictionary* item below, not more few-shots.
 - **Ground the system prompt in the grammar + dictionary** *(technique ported
   from nibli's Klaro-side plan)* — instead of hand-curated few-shots only,
   derive the prompt's grammar-fragment cheat-sheet from gerna's own EBNF

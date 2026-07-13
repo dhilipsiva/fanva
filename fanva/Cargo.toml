@@ -16,11 +16,31 @@ nibli-render = { path = "../nibli-render" }
 nibli-types = { path = "../nibli-types" }
 serde_json = "1"
 
+# Dev-only convergence-measurement harness (the `measure` bin, `--features
+# measure`). Optional so the shipped wasm bundle never pulls a native HTTP stack:
+# `ureq` is the native send, `futures` drives the async loop, `fanva-verify`
+# supplies the camxes-via-node third gate. None of these are in the browser build.
+ureq = { version = "2", optional = true }
+futures = { version = "0.3", features = ["executor"], optional = true }
+fanva-verify = { path = "../fanva-verify", optional = true }
+
+[features]
+# The native measurement harness: a real HTTP transport + the camxes-via-node
+# third gate. NEVER enabled for the wasm/browser build (fanva-ui doesn't set it).
+measure = ["dep:ureq", "dep:futures", "dep:fanva-verify"]
+
 # Batch validator for the python Lojban flywheel (generate_training_data.py /
 # nibli_model.py subprocess it): one JSON verdict per stdin line.
 [[bin]]
 name = "fanva-validate"
 path = "src/bin/validate.rs"
+
+# Convergence-measurement harness — built only with `--features measure`, so a
+# plain `cargo build`/`cargo test`/the wasm build all skip it.
+[[bin]]
+name = "measure"
+path = "src/bin/measure.rs"
+required-features = ["measure"]
 
 [dev-dependencies]
 # A minimal block_on for driving the async agent loop in native unit tests.

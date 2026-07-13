@@ -1,0 +1,30 @@
+# English source corpus for the convergence-measurement harness (src/bin/measure.rs).
+# One English sentence per line; blank lines and #-comments are skipped. These are
+# INPUTS the harness asks each provider to translate — they are English, not Lojban,
+# so they carry no gate constraints. Chosen to span the grammar fragment the
+# LOJBAN_SYSTEM_PROMPT targets: plain SVO, tense, negation, universal quantifier,
+# conjunction, place-swap (passive), ditransitive, property/adjective, and names.
+The dog runs.
+I love you.
+Adam sees the cat.
+The big dog eats.
+I ate the food.
+Every dog is an animal.
+Adam does not eat.
+Adam and the cat eat.
+The cat is seen by Adam.
+The child sleeps.
+Mary goes to the market.
+The teacher gives the book to the student.
+The water is cold.
+I will see Adam.
+The man loves the woman.
+A dog bites the child.
+Every person thinks.
+The bird is white.
+I do not love the dog.
+The book is red.
+The student reads the book.
+She walks to the school.
+The house is big.
+The woman gives water to the child.

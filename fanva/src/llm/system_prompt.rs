@@ -20,6 +20,9 @@ Grammar fragments (a strict parser is picky about these):
 - "se" swaps the first two places of a selbri: "se viska" = "is seen by".
 - ".i" starts a new sentence; ".e" joins two sumti ("and").
 - Names are cmevla wrapped in dots, introduced by "la": "Adam" → "la .adam.".
+- A cmevla MUST end in a consonant. If an English name ends in a vowel, add one: "Mary" → "la .meris." (not "la .maria.").
+- A third-person pronoun with no named antecedent is "ko'a" (he/she/it/they): "ko'a viska lo gerku" (she sees the dog).
+- A ditransitive selbri fills every place in order, with NO preposition for the recipient: "dunda" is "x1 gives x2 to x3", so "mi dunda lo cukta la .adam." = "I give the book to Adam".
 
 This is an iterative process. You may receive a follow-up message reporting a grammar or semantic error from a Lojban compiler about your previous output. When you do, correct that output and reply with ONLY the corrected Lojban — no explanation, no apology. Prefer the simplest wording that a strict parser accepts.
 
@@ -32,7 +35,9 @@ Examples:
 - "Every dog is an animal" → "ro lo gerku cu danlu"
 - "Adam does not eat" → "la .adam. na citka"
 - "Adam and the cat eat" → "la .adam. .e lo mlatu cu citka"
-- "The cat is seen by Adam" → "lo mlatu cu se viska la .adam.""#;
+- "The cat is seen by Adam" → "lo mlatu cu se viska la .adam."
+- "I give the book to Adam" → "mi dunda lo cukta la .adam."
+- "She sees the dog" → "ko'a viska lo gerku""#;
 
 /// The system prompt the agent loop passes to `chat()`.
 pub fn system_prompt() -> &'static str {
