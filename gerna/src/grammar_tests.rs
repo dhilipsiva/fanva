@@ -4154,11 +4154,12 @@ fn test_giha_without_tail_selbri_rejected() {
 }
 
 #[test]
-fn test_giha_quantified_or_description_head_rejected() {
-    // A quantified or description head would be RE-QUANTIFIED per tail
-    // (officially `da klama gi'e citka` is ∃x(klama(x) ∧ citka(x)) — ONE
-    // witness; the repeated-head desugar would mint two independent ∃s and
-    // return a wrong TRUE on disjoint witnesses). Fail closed.
+fn test_giha_quantified_or_description_head_parses_to_shared_head() {
+    // A quantified/description head is no longer rejected: it parses to a
+    // `Sentence::SharedHead` so smuni binds the head witness ONCE across the tails
+    // (`da klama gi'e citka` = ∃x.(klama(x) ∧ citka(x)), one witness — not two
+    // disjoint ∃s). The one-shared-∃ semantics are pinned by smuni's
+    // `giha_shared_head_*` tests; here we just check the parse shape.
     for tokens in [
         vec![cmavo("da"), gismu("klama"), cmavo("gi'e"), gismu("citka")],
         vec![
@@ -4179,10 +4180,12 @@ fn test_giha_quantified_or_description_head_rejected() {
             gismu("citka"),
         ],
     ] {
-        let err = parse_err(&tokens);
+        let arena = Bump::new();
+        let p = parse_ok(&tokens, &arena);
         assert!(
-            err.contains("re-quantified"),
-            "expected the scope-splitting diagnostic, got: {err}"
+            matches!(&p.sentences[0], Sentence::SharedHead { .. }),
+            "a quantified/description-head GIhA must parse to SharedHead, got {:?}",
+            p.sentences[0]
         );
     }
 }

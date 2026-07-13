@@ -433,18 +433,21 @@ fn giha_fused_nai_without_first_bridi_rejected() {
 }
 
 #[test]
-fn giha_quantified_head_rejected_full_pipeline() {
-    // Officially `da klama gi'e citka` binds ONE `da` over both tails; the
-    // repeated-head desugar would split the scope. Fail closed.
+fn giha_quantified_head_parses_to_shared_head_full_pipeline() {
+    // A quantified/description head now parses to `Sentence::SharedHead` (smuni binds
+    // ONE head witness across both tails) instead of failing closed. The
+    // one-shared-∃ semantics are pinned by smuni's `giha_shared_head_*` tests.
+    let arena = Bump::new();
     for text in [
         "da klama gi'e citka",
         "lo gerku cu klama gi'e citka",
         "re lo gerku cu klama gi'e citka",
     ] {
-        let err = parse_err(text);
+        let p = parse(text, &arena);
         assert!(
-            err.contains("re-quantified"),
-            "`{text}`: expected the scope-splitting diagnostic, got: {err}"
+            matches!(&p.sentences[0], Sentence::SharedHead { .. }),
+            "`{text}`: expected SharedHead, got {:?}",
+            p.sentences[0]
         );
     }
 }

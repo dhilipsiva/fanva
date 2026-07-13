@@ -107,6 +107,18 @@ fn validate_ast_buffer(ast: &gerna_ast::AstBuffer) -> Result<(), NibliError> {
                 }
                 Sentence::Connected((_, l, r)) => vec![(Kind::Sen, *l), (Kind::Sen, *r)],
                 Sentence::Prenex((_, body)) => vec![(Kind::Sen, *body)],
+                Sentence::SharedHead((head, tails)) => {
+                    // No child SENTENCE ids: the head + every tail carry only selbri
+                    // + sumti references (the shared head_terms are on `head`).
+                    let mut v = vec![(Kind::Sel, head.relation)];
+                    v.extend(head.head_terms.iter().map(|t| (Kind::Sum, *t)));
+                    v.extend(head.tail_terms.iter().map(|t| (Kind::Sum, *t)));
+                    for t in tails {
+                        v.push((Kind::Sel, t.relation));
+                        v.extend(t.tail_terms.iter().map(|s| (Kind::Sum, *s)));
+                    }
+                    v
+                }
             },
         }
     };

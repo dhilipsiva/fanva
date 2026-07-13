@@ -638,6 +638,276 @@ impl SemanticCompiler {
                     }
                 }
             }
+            Sentence::SharedHead((head, tails)) => {
+                self.compile_shared_head(head, tails, selbris, sumtis, sentences)
+            }
         }
+    }
+
+    /// Compile a shared-head GIhA chain (`X S1 gi'e S2 …` with a
+    /// quantified/description head like `lo terdi`/`da`): resolve the head ONCE and
+    /// distribute its witness over the conjoined tails, so
+    /// `lo terdi cu na se tarmi gi'e kunti` yields
+    /// `∃v.(terdi(v) ∧ (¬(∃e.tarmi(e) ∧ tarmi_x2(e,v)) ∧ ∃e2.(kunti(e2) ∧ kunti_x1(e2,v))))`
+    /// — ONE shared witness, not two disjoint ones. Constant heads never reach here
+    /// (the parser keeps them on the repeated-head `.i je` desugar). Fails closed on
+    /// the rare sub-corners this focused path does not model (a BAI modal, or a
+    /// connected sumti in a tail); those were rejected entirely before this fix, so
+    /// failing closed here is a strict improvement, never a regression.
+    fn compile_shared_head(
+        &mut self,
+        head: &Bridi,
+        tails: &[GihaTail],
+        selbris: &[Selbri],
+        sumtis: &[Sumti],
+        sentences: &[Sentence],
+    ) -> LogicalForm {
+        // 1. Resolve the SHARED head terms ONCE: positioned args (by place), the
+        //    head's scope markers (the `lo`/`da` witness), and its surface-captured
+        //    bare vars. A BAI modal in a shared head is not modeled — fail closed.
+        let mut head_positioned: Vec<(usize, LogicalTerm)> = Vec::new();
+        let mut head_markers: Vec<ScopeMarker> = Vec::new();
+        let mut head_introduced: std::collections::HashSet<lasso::Spur> =
+            std::collections::HashSet::new();
+        let mut next_place: usize = 0;
+        for &term_id in &head.head_terms {
+            match &sumtis[term_id as usize] {
+                Sumti::Tagged((tag, inner_id)) => {
+                    let inner = &sumtis[*inner_id as usize];
+                    let (term, quants) = self.resolve_sumti(inner, sumtis, selbris, sentences);
+                    self.record_bare_marker(&term, &mut head_introduced, &mut head_markers);
+                    head_markers.extend(quants.into_iter().map(ScopeMarker::Desc));
+                    head_positioned.push((tag.to_index(), term));
+                    next_place = tag.to_index() + 1;
+                }
+                Sumti::ModalTagged(_) => {
+                    self.errors.push(
+                        "a BAI modal in the shared head of a quantified/description GIhA \
+                         chain is not yet supported; restate as separate `.i` sentences"
+                            .to_string(),
+                    );
+                }
+                other => {
+                    let (term, quants) = self.resolve_sumti(other, sumtis, selbris, sentences);
+                    self.record_bare_marker(&term, &mut head_introduced, &mut head_markers);
+                    head_markers.extend(quants.into_iter().map(ScopeMarker::Desc));
+                    head_positioned.push((next_place, term));
+                    next_place += 1;
+                }
+            }
+        }
+        let head_next_place = next_place;
+
+        // 2. Build each branch matrix (head predication first, then each tail),
+        //    every branch reusing the SHARED head args; combine left-associatively
+        //    with the connectives. `right_negated` (from `gi'enai`/`gi'e nai`) wraps
+        //    that tail's matrix in `Not` — inside the eventual shared scope.
+        let mut acc = self.build_giha_branch(
+            &head_positioned,
+            head_next_place,
+            head.relation,
+            &head.tail_terms,
+            head.negated,
+            head.tense,
+            head.attitudinal,
+            &head_introduced,
+            selbris,
+            sumtis,
+            sentences,
+        );
+        for t in tails {
+            let mut r = self.build_giha_branch(
+                &head_positioned,
+                head_next_place,
+                t.relation,
+                &t.tail_terms,
+                t.negated,
+                None,
+                None,
+                &head_introduced,
+                selbris,
+                sumtis,
+                sentences,
+            );
+            if t.right_negated {
+                r = LogicalForm::Not(Box::new(r));
+            }
+            acc = match t.connective {
+                Connective::Je => LogicalForm::And(Box::new(acc), Box::new(r)),
+                Connective::Ja => LogicalForm::Or(Box::new(acc), Box::new(r)),
+                Connective::Jo => LogicalForm::Biconditional(Box::new(acc), Box::new(r)),
+                Connective::Ju => LogicalForm::Xor(Box::new(acc), Box::new(r)),
+            };
+        }
+
+        // 3. Close the SHARED head scope ONCE around the combined tails. Free-var
+        //    safety net first (a head `da` reachable only via a merged predicate),
+        //    excluding surface-captured head vars; then the reverse marker fold binds
+        //    the head's `lo`/`da` witness over BOTH tails — the whole point.
+        let mut all_free_seen = std::collections::HashSet::new();
+        let mut all_free: Vec<lasso::Spur> = Vec::new();
+        let mut bound_vars: Vec<lasso::Spur> = Vec::new();
+        Self::collect_free_logic_vars(
+            &acc,
+            &self.interner,
+            &self.prenex_vars,
+            &mut bound_vars,
+            &mut all_free_seen,
+            &mut all_free,
+        );
+        for var in &all_free {
+            if !head_introduced.contains(var) {
+                acc = LogicalForm::Exists(*var, Box::new(acc));
+            }
+        }
+        for marker in head_markers.into_iter().rev() {
+            acc = match marker {
+                ScopeMarker::Desc(entry) => {
+                    self.close_quantifier(entry, acc, selbris, sumtis, sentences)
+                }
+                ScopeMarker::Bare(var) => LogicalForm::Exists(var, Box::new(acc)),
+            };
+        }
+        acc
+    }
+
+    /// Build ONE branch matrix of a shared-head GIhA chain: the shared head args
+    /// (already resolved, `head_positioned`) seed the head places, this branch's own
+    /// `tail_terms` fill the rest, then the branch's OWN scope (tail-local `lo`/`da`)
+    /// closes here — but the shared head vars (in `head_introduced`) are left FREE so
+    /// the caller binds them once around all tails. Per-branch `negated`/tense/
+    /// attitudinal wrap this matrix inside the shared scope. Fails closed on a BAI
+    /// modal or connected sumti in a tail (unsupported on this path).
+    #[allow(clippy::too_many_arguments)]
+    fn build_giha_branch(
+        &mut self,
+        head_positioned: &[(usize, LogicalTerm)],
+        head_next_place: usize,
+        relation: u32,
+        tail_terms: &[u32],
+        negated: bool,
+        tense: Option<Tense>,
+        attitudinal: Option<Attitudinal>,
+        head_introduced: &std::collections::HashSet<lasso::Spur>,
+        selbris: &[Selbri],
+        sumtis: &[Sumti],
+        sentences: &[Sentence],
+    ) -> LogicalForm {
+        let target_arity = self.get_selbri_arity(relation, selbris);
+        let mut positioned: Vec<Option<LogicalTerm>> = vec![None; target_arity];
+
+        // Seed the shared head args.
+        for (place, term) in head_positioned {
+            if *place >= target_arity {
+                self.errors.push(format!(
+                    "the shared GIhA head fills place x{}, but this tail's selbri has \
+                     only {} place(s); the shared head cannot be placed.",
+                    place + 1,
+                    target_arity
+                ));
+            } else if positioned[*place].is_some() {
+                self.errors.push(
+                    "the shared GIhA head targets a place that is already filled.".to_string(),
+                );
+            } else {
+                positioned[*place] = Some(term.clone());
+            }
+        }
+
+        // Position this branch's own tail terms after the head places.
+        let mut markers: Vec<ScopeMarker> = Vec::new();
+        let mut introduced: std::collections::HashSet<lasso::Spur> =
+            std::collections::HashSet::new();
+        let mut next_place = head_next_place;
+        for &term_id in tail_terms {
+            match &sumtis[term_id as usize] {
+                Sumti::Tagged((tag, inner_id)) => {
+                    let inner = &sumtis[*inner_id as usize];
+                    let (term, quants) = self.resolve_sumti(inner, sumtis, selbris, sentences);
+                    self.record_bare_marker(&term, &mut introduced, &mut markers);
+                    markers.extend(quants.into_iter().map(ScopeMarker::Desc));
+                    let idx = tag.to_index();
+                    if idx < target_arity && positioned[idx].is_none() {
+                        positioned[idx] = Some(term);
+                        next_place = idx + 1;
+                    } else {
+                        self.errors.push(format!(
+                            "place tag x{} is unavailable in this GIhA tail.",
+                            idx + 1
+                        ));
+                    }
+                }
+                Sumti::ModalTagged(_) | Sumti::Connected(_) => {
+                    self.errors.push(
+                        "a BAI modal or connected sumti (.e/.a/.o/.u) in a shared-head \
+                         GIhA tail is not yet supported; restate as separate `.i` sentences"
+                            .to_string(),
+                    );
+                }
+                other => {
+                    let (term, quants) = self.resolve_sumti(other, sumtis, selbris, sentences);
+                    self.record_bare_marker(&term, &mut introduced, &mut markers);
+                    markers.extend(quants.into_iter().map(ScopeMarker::Desc));
+                    while next_place < target_arity && positioned[next_place].is_some() {
+                        next_place += 1;
+                    }
+                    if next_place < target_arity {
+                        positioned[next_place] = Some(term);
+                        next_place += 1;
+                    }
+                }
+            }
+        }
+
+        let args: Vec<LogicalTerm> = positioned
+            .into_iter()
+            .map(|slot| slot.unwrap_or(LogicalTerm::Unspecified))
+            .collect();
+        let mut form = self.apply_selbri(relation, &args, selbris, sumtis, sentences);
+
+        // Close this branch's OWN scope (tail-local `lo`/`da`), leaving the shared
+        // head vars free. The free-var net collects only bare `da`/`de`/`di`; it and
+        // the marker fold both skip `head_introduced`, so a shared head `da` is NOT
+        // closed here (the caller binds it once around all tails).
+        let mut all_free_seen = std::collections::HashSet::new();
+        let mut all_free: Vec<lasso::Spur> = Vec::new();
+        let mut bound_vars: Vec<lasso::Spur> = Vec::new();
+        Self::collect_free_logic_vars(
+            &form,
+            &self.interner,
+            &self.prenex_vars,
+            &mut bound_vars,
+            &mut all_free_seen,
+            &mut all_free,
+        );
+        for var in &all_free {
+            if !introduced.contains(var) && !head_introduced.contains(var) {
+                form = LogicalForm::Exists(*var, Box::new(form));
+            }
+        }
+        for marker in markers.into_iter().rev() {
+            form = match marker {
+                ScopeMarker::Desc(entry) => {
+                    self.close_quantifier(entry, form, selbris, sumtis, sentences)
+                }
+                ScopeMarker::Bare(var) => LogicalForm::Exists(var, Box::new(form)),
+            };
+        }
+
+        if negated {
+            form = LogicalForm::Not(Box::new(form));
+        }
+        match tense {
+            Some(Tense::Pu) => form = LogicalForm::Past(Box::new(form)),
+            Some(Tense::Ca) => form = LogicalForm::Present(Box::new(form)),
+            Some(Tense::Ba) => form = LogicalForm::Future(Box::new(form)),
+            None => {}
+        }
+        match attitudinal {
+            Some(Attitudinal::Ei) => form = LogicalForm::Obligatory(Box::new(form)),
+            Some(Attitudinal::Ehe) => form = LogicalForm::Permitted(Box::new(form)),
+            None => {}
+        }
+        form
     }
 }

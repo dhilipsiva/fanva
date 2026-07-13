@@ -24,8 +24,8 @@ use crate::dictionary::JbovlasteSchema;
 use crate::ir::{LogicalForm, LogicalTerm};
 use lasso::Rodeo;
 use nibli_types::ast::{
-    AbstractionKind, Attitudinal, BaiTag, Bridi, Connective, Conversion, Gadri, ModalTag, PlaceTag,
-    RelClauseKind, Selbri, Sentence, SentenceConnective, Sumti, Tense,
+    AbstractionKind, Attitudinal, BaiTag, Bridi, Connective, Conversion, Gadri, GihaTail, ModalTag,
+    PlaceTag, RelClauseKind, Selbri, Sentence, SentenceConnective, Sumti, Tense,
 };
 
 mod compile;
@@ -4414,5 +4414,231 @@ mod tests {
             !has_pred(&form, "le_domain_gerku", &compiler),
             "le_domain_gerku should NOT appear for PA lo"
         );
+    }
+
+    // ─── Shared-head GIhA (quantified/description head binds ONE witness) ───
+
+    /// Build a buffer with a single `SharedHead` sentence and compile it.
+    fn compile_shared(
+        selbris: Vec<Selbri>,
+        sumtis: Vec<Sumti>,
+        head: Bridi,
+        tails: Vec<GihaTail>,
+    ) -> (LogicalForm, SemanticCompiler) {
+        let sentences = vec![Sentence::SharedHead((head, tails))];
+        let mut compiler = SemanticCompiler::new();
+        let form = compiler.compile_sentence(0, &selbris, &sumtis, &sentences);
+        (form, compiler)
+    }
+
+    /// True if a `Not` appears anywhere in the subtree.
+    fn subtree_has_not(form: &LogicalForm) -> bool {
+        match form {
+            LogicalForm::Not(_) => true,
+            LogicalForm::Exists(_, b)
+            | LogicalForm::ForAll(_, b)
+            | LogicalForm::Past(b)
+            | LogicalForm::Present(b)
+            | LogicalForm::Future(b)
+            | LogicalForm::Obligatory(b)
+            | LogicalForm::Permitted(b) => subtree_has_not(b),
+            LogicalForm::Count { body, .. } => subtree_has_not(body),
+            LogicalForm::And(l, r)
+            | LogicalForm::Or(l, r)
+            | LogicalForm::Biconditional(l, r)
+            | LogicalForm::Xor(l, r) => subtree_has_not(l) || subtree_has_not(r),
+            LogicalForm::Predicate { .. } => false,
+        }
+    }
+
+    #[test]
+    fn giha_shared_head_da_binds_one_witness() {
+        // `da klama gi'e citka` — the shared `da` binds ONE existential across both
+        // tails: `∃da.(klama(da) ∧ citka(da))`, NOT `∃da.klama ∧ ∃da.citka` (two
+        // disjoint witnesses — the wrong-TRUE bug this fix removes). The old
+        // repeated-head desugar gave `count_exists_binding == 2`; this must give 1.
+        let selbris = vec![
+            Selbri::Root("klama".to_string()),
+            Selbri::Root("citka".to_string()),
+        ];
+        let sumtis = vec![Sumti::ProSumti("da".to_string())];
+        let head = Bridi {
+            relation: 0,
+            head_terms: vec![0],
+            tail_terms: vec![],
+            negated: false,
+            tense: None,
+            attitudinal: None,
+        };
+        let tails = vec![GihaTail {
+            connective: Connective::Je,
+            right_negated: false,
+            relation: 1,
+            tail_terms: vec![],
+            negated: false,
+        }];
+        let (form, compiler) = compile_shared(selbris, sumtis, head, tails);
+
+        assert_eq!(
+            count_exists_binding(&form, "da", &compiler),
+            1,
+            "the shared `da` must be bound by exactly ONE ∃, not two: {form:?}"
+        );
+        assert_eq!(
+            binder_spine(&form, &compiler).first(),
+            Some(&Binder::Exists("da".to_string())),
+            "the outermost binder must be `∃da`, wrapping both tails"
+        );
+        for role in ["klama_x1", "citka_x1"] {
+            let args = get_pred_args(&form, role, &compiler)
+                .unwrap_or_else(|| panic!("missing {role} in {form:?}"));
+            assert!(
+                matches!(&args[1], LogicalTerm::Variable(v) if resolve(&compiler, v) == "da"),
+                "{role} must place the shared `da` in x1: {args:?}"
+            );
+        }
+        assert!(
+            free_vars(&form, &compiler).is_empty(),
+            "no variable may be left free: {:?}",
+            free_vars(&form, &compiler)
+        );
+    }
+
+    #[test]
+    fn giha_shared_head_lo_terdi_genesis() {
+        // `lo terdi cu na se tarmi gi'e kunti` (Genesis 1:2) — ONE shared witness `v`:
+        // ∃v.(terdi(v) ∧ (¬(∃e.tarmi(e) ∧ tarmi_x2(e,v)) ∧ ∃e2.(kunti(e2) ∧ kunti_x1(e2,v)))).
+        let selbris = vec![
+            Selbri::Root("tarmi".to_string()),
+            Selbri::Converted((Conversion::Se, 0)), // se tarmi
+            Selbri::Root("kunti".to_string()),
+            Selbri::Root("terdi".to_string()),
+        ];
+        let sumtis = vec![Sumti::Description((Gadri::Lo, 3))]; // lo terdi
+        let head = Bridi {
+            relation: 1, // se tarmi
+            head_terms: vec![0],
+            tail_terms: vec![],
+            negated: true, // na
+            tense: None,
+            attitudinal: None,
+        };
+        let tails = vec![GihaTail {
+            connective: Connective::Je,
+            right_negated: false,
+            relation: 2, // kunti
+            tail_terms: vec![],
+            negated: false,
+        }];
+        let (form, compiler) = compile_shared(selbris, sumtis, head, tails);
+
+        // Exactly one shared existential witness (the `lo terdi` var), outermost.
+        let v = match &form {
+            LogicalForm::Exists(v, _) => resolve(&compiler, v),
+            other => panic!("expected an outer ∃ over the shared witness, got {other:?}"),
+        };
+        assert_eq!(
+            count_exists_binding(&form, &v, &compiler),
+            1,
+            "the shared witness must be bound once: {form:?}"
+        );
+        assert!(
+            has_pred(&form, "terdi", &compiler),
+            "restrictor terdi(v) missing"
+        );
+        // The SAME witness lands in tarmi_x2 (via `se`) AND kunti_x1.
+        let x2 = get_pred_args(&form, "tarmi_x2", &compiler).expect("tarmi_x2 missing");
+        let k1 = get_pred_args(&form, "kunti_x1", &compiler).expect("kunti_x1 missing");
+        assert!(
+            matches!(&x2[1], LogicalTerm::Variable(s) if resolve(&compiler, s) == v),
+            "tarmi_x2 must carry the shared witness: {x2:?}"
+        );
+        assert_eq!(
+            x2[1], k1[1],
+            "tarmi_x2 and kunti_x1 must bind the SAME witness"
+        );
+        assert!(
+            subtree_has_not(&form),
+            "the `na`-negated tarmi branch must sit under a Not"
+        );
+        assert!(free_vars(&form, &compiler).is_empty());
+    }
+
+    #[test]
+    fn giha_shared_head_gi_a_is_disjunction() {
+        // `lo prenu cu bajra gi'a citka` — gi'a → OR under the shared ∃.
+        let selbris = vec![
+            Selbri::Root("bajra".to_string()),
+            Selbri::Root("citka".to_string()),
+            Selbri::Root("prenu".to_string()),
+        ];
+        let sumtis = vec![Sumti::Description((Gadri::Lo, 2))]; // lo prenu
+        let head = Bridi {
+            relation: 0,
+            head_terms: vec![0],
+            tail_terms: vec![],
+            negated: false,
+            tense: None,
+            attitudinal: None,
+        };
+        let tails = vec![GihaTail {
+            connective: Connective::Ja, // gi'a
+            right_negated: false,
+            relation: 1,
+            tail_terms: vec![],
+            negated: false,
+        }];
+        let (form, compiler) = compile_shared(selbris, sumtis, head, tails);
+
+        match &form {
+            LogicalForm::Exists(_, body) => match &**body {
+                LogicalForm::And(_restrictor, rhs) => assert!(
+                    matches!(&**rhs, LogicalForm::Or(_, _)),
+                    "gi'a tails must combine with Or, got {rhs:?}"
+                ),
+                other => panic!("expected And(restrictor, tails), got {other:?}"),
+            },
+            other => panic!("expected outer ∃, got {other:?}"),
+        }
+        assert!(free_vars(&form, &compiler).is_empty());
+    }
+
+    #[test]
+    fn giha_shared_head_gi_enai_negates_right_tail() {
+        // `lo gerku cu barda gi'enai bajra` — the right tail sits under a Not, inside
+        // the shared ∃, sharing the witness with the left tail.
+        let selbris = vec![
+            Selbri::Root("barda".to_string()),
+            Selbri::Root("bajra".to_string()),
+            Selbri::Root("gerku".to_string()),
+        ];
+        let sumtis = vec![Sumti::Description((Gadri::Lo, 2))]; // lo gerku
+        let head = Bridi {
+            relation: 0,
+            head_terms: vec![0],
+            tail_terms: vec![],
+            negated: false,
+            tense: None,
+            attitudinal: None,
+        };
+        let tails = vec![GihaTail {
+            connective: Connective::Je,
+            right_negated: true, // gi'enai
+            relation: 1,
+            tail_terms: vec![],
+            negated: false,
+        }];
+        let (form, compiler) = compile_shared(selbris, sumtis, head, tails);
+        let v = match &form {
+            LogicalForm::Exists(v, _) => resolve(&compiler, v),
+            other => panic!("expected outer ∃, got {other:?}"),
+        };
+        assert_eq!(count_exists_binding(&form, &v, &compiler), 1);
+        assert!(subtree_has_not(&form), "gi'enai must negate the right tail");
+        // Both branches still share the witness.
+        let b1 = get_pred_args(&form, "barda_x1", &compiler).expect("barda_x1");
+        let b2 = get_pred_args(&form, "bajra_x1", &compiler).expect("bajra_x1");
+        assert_eq!(b1[1], b2[1], "both tails must share the witness");
+        assert!(free_vars(&form, &compiler).is_empty());
     }
 }

@@ -64,6 +64,11 @@ fn gerna_accepted_sentences_are_camxes_parseable() {
         "mi klama gi'e citka",
         "mi klama le zarci gi'e citka lo plise",
         "la .terdi. cu na se tarmi gi'e kunti",
+        // Quantified/description heads now parse to a shared-head node (smuni binds
+        // one witness across the tails) — they must stay within camxes-std too.
+        "lo terdi cu na se tarmi gi'e kunti",
+        "da klama gi'e citka",
+        "ro lo gerku cu klama gi'e citka",
         "mi klama gi'e na citka",
         "mi na klama gi'e na citka",
         "mi klama gi'e citka gi'e sipna",

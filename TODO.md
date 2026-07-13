@@ -44,19 +44,15 @@ when it lands.
 
 ## gerna / smuni backlog *(from nibli)*
 
-- **GIhA quantified/description heads: share the head witness across tails** —
-  currently rejected fail-closed (gerna `giha_safe_head`): the repeated-head
-  desugar would re-quantify a `da`/`lo`-head per tail, splitting one surface
-  scope into independent ∃s (wrong TRUE on disjoint witnesses —
-  adversarial-review finding, 2026-07-10). The real fix is compiling the head
-  ONCE (one witness/variable) and distributing only the tails — needs a
-  smuni-level GIhA construct instead of the parse-time desugar. Would un-block
-  Genesis 1:2 (`lo terdi cu na se tarmi gi'e kunti`), which today needs a name
-  head or `.i je` restate.
 - **Determinism corpus: add GIhA + negative-conjunct lines** —
   `determinism-corpus.lojban` predates both; add a `gi'e` chain, a `gi'enai`
   line, and a `P .i je na Q` sequence so the corpus (a parse-differential and
-  fuzz-seed input here) pins the new shapes. Pairs with the GIhA item above.
+  fuzz-seed input here) pins the new shapes. The GIhA shared-head fix has landed
+  (quantified/description heads now compile to ONE shared witness — a new
+  `Sentence::SharedHead` node, pinned by smuni's `giha_shared_head_*` tests), so
+  these lines would pin its runtime verdicts. Follow-ups the fix left open:
+  connected sumti in a shared head, and a BAI modal / connected sumti in a
+  shared-head tail (all currently fail-closed).
 - **Port the known-failures backlog into compiled tests** — the pinned
   gerna/smuni miscompilation cases carried from nibli
   (`docs/reference/known-failures/`) are written against nibli-engine APIs;

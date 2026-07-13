@@ -169,40 +169,8 @@ impl Flattener {
 
         match sentence {
             ast::Sentence::Simple(bridi) => {
-                let relation = self.push_selbri(&bridi.selbri);
-
-                let mut head_terms = Vec::new();
-                for term in bridi.head_terms {
-                    head_terms.push(self.push_sumti(term));
-                }
-
-                let mut tail_terms = Vec::new();
-                for term in bridi.tail_terms {
-                    tail_terms.push(self.push_sumti(term));
-                }
-
-                let tense = bridi.tense.map(|t| match t {
-                    ast::Tense::Pu => flat::Tense::Pu,
-                    ast::Tense::Ca => flat::Tense::Ca,
-                    ast::Tense::Ba => flat::Tense::Ba,
-                });
-
-                let attitudinal = bridi.attitudinal.map(|a| match a {
-                    ast::Attitudinal::Ei => flat::Attitudinal::Ei,
-                    ast::Attitudinal::Ehe => flat::Attitudinal::Ehe,
-                });
-
-                let flat_bridi = flat::Bridi {
-                    relation,
-                    head_terms,
-                    tail_terms,
-                    negated: bridi.negated,
-                    tense,
-                    attitudinal,
-                };
-
+                let flat_bridi = self.flatten_bridi(bridi);
                 let idx = self.buffer.sentences.len() as u32;
-                // Push the flat_bridi wrapped in the Simple enum variant
                 self.buffer
                     .sentences
                     .push(flat::Sentence::Simple(flat_bridi));
@@ -253,6 +221,75 @@ impl Flattener {
                 )));
                 idx
             }
+            ast::Sentence::SharedHead { head, tails } => {
+                // The shared head's sumti are pushed exactly ONCE (inside the head
+                // bridi); each tail carries only its own selbri + trailing terms and
+                // reuses the head's `head_terms`. smuni binds the head witness once.
+                let flat_head = self.flatten_bridi(head);
+                let mut flat_tails = Vec::new();
+                for t in tails.iter() {
+                    let relation = self.push_selbri(&t.selbri);
+                    let mut tail_terms = Vec::new();
+                    for term in t.tail_terms {
+                        tail_terms.push(self.push_sumti(term));
+                    }
+                    let connective = match t.connective {
+                        ast::Connective::Je => flat::Connective::Je,
+                        ast::Connective::Ja => flat::Connective::Ja,
+                        ast::Connective::Jo => flat::Connective::Jo,
+                        ast::Connective::Ju => flat::Connective::Ju,
+                    };
+                    flat_tails.push(flat::GihaTail {
+                        connective,
+                        right_negated: t.right_negated,
+                        relation,
+                        tail_terms,
+                        negated: t.negated,
+                    });
+                }
+                let idx = self.buffer.sentences.len() as u32;
+                self.buffer
+                    .sentences
+                    .push(WasmSentence::SharedHead((flat_head, flat_tails)));
+                idx
+            }
+        }
+    }
+
+    /// Flatten one arena `Bridi` into a flat `Bridi`, pushing its selbri + head +
+    /// tail sumti into the buffer. Shared by `Sentence::Simple` and the head of a
+    /// `Sentence::SharedHead` (so the shared head's sumti are pushed exactly once).
+    fn flatten_bridi(&mut self, bridi: &ast::Bridi<'_>) -> flat::Bridi {
+        let relation = self.push_selbri(&bridi.selbri);
+
+        let mut head_terms = Vec::new();
+        for term in bridi.head_terms {
+            head_terms.push(self.push_sumti(term));
+        }
+
+        let mut tail_terms = Vec::new();
+        for term in bridi.tail_terms {
+            tail_terms.push(self.push_sumti(term));
+        }
+
+        let tense = bridi.tense.map(|t| match t {
+            ast::Tense::Pu => flat::Tense::Pu,
+            ast::Tense::Ca => flat::Tense::Ca,
+            ast::Tense::Ba => flat::Tense::Ba,
+        });
+
+        let attitudinal = bridi.attitudinal.map(|a| match a {
+            ast::Attitudinal::Ei => flat::Attitudinal::Ei,
+            ast::Attitudinal::Ehe => flat::Attitudinal::Ehe,
+        });
+
+        flat::Bridi {
+            relation,
+            head_terms,
+            tail_terms,
+            negated: bridi.negated,
+            tense,
+            attitudinal,
         }
     }
 

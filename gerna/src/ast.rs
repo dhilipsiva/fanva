@@ -283,6 +283,22 @@ pub struct Bridi<'a> {
     pub attitudinal: Option<Attitudinal>,
 }
 
+/// One tail of a shared-head GIhA chain (`... gi'e S2 gi'a S3 ...`). Reuses the
+/// chain's shared head terms (on the chain's first `Bridi`); carries what differs.
+#[derive(Debug, Clone, PartialEq)]
+pub struct GihaTail<'a> {
+    /// GIhA connective introducing this tail: gi'e→Je, gi'a→Ja, gi'o→Jo, gi'u→Ju.
+    pub connective: Connective,
+    /// `nai` after the connective (`gi'enai`/`gi'e nai`) — negates this tail.
+    pub right_negated: bool,
+    /// This tail's predicate.
+    pub selbri: Selbri<'a>,
+    /// This tail's trailing terms (after its selbri).
+    pub tail_terms: &'a [Sumti<'a>],
+    /// Leading `na` on the tail selbri (tail-level bridi negation).
+    pub negated: bool,
+}
+
 #[derive(Debug, Clone, PartialEq)]
 /// A parsed Lojban sentence: either a simple bridi or two sentences joined by a connective.
 pub enum Sentence<'a> {
@@ -301,6 +317,14 @@ pub enum Sentence<'a> {
     Prenex {
         vars: &'a [&'a str],
         body: &'a Sentence<'a>,
+    },
+    /// Shared-head GIhA chain (`X S1 gi'e S2 gi'a S3 ...`): `head` is the first
+    /// predication (its `head_terms` are the shared head), each tail reuses them.
+    /// Preserves head-sharing so smuni binds one witness across all tails, instead
+    /// of the old parse-time desugar that repeated (and re-quantified) the head.
+    SharedHead {
+        head: &'a Bridi<'a>,
+        tails: &'a [GihaTail<'a>],
     },
 }
 

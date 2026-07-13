@@ -210,6 +210,22 @@ pub struct Bridi {
     pub attitudinal: Option<Attitudinal>,
 }
 
+/// One tail of a shared-head GIhA chain (`... gi'e S2 gi'a S3 ...`). Reuses the
+/// chain's shared `head_terms` (compiled ONCE); carries only what differs per tail.
+#[derive(Clone, Debug)]
+pub struct GihaTail {
+    /// GIhA connective introducing THIS tail: gi'e→Je, gi'a→Ja, gi'o→Jo, gi'u→Ju.
+    pub connective: Connective,
+    /// `nai` after the connective (`gi'enai`/`gi'e nai`) — negates this tail's matrix.
+    pub right_negated: bool,
+    /// This tail's predicate.
+    pub relation: SelbriId,
+    /// This tail's trailing terms (after its selbri).
+    pub tail_terms: Vec<SumtiId>,
+    /// Leading `na` on the tail selbri (tail-level bridi negation, matrix-scoped).
+    pub negated: bool,
+}
+
 /// Sentence connective for forethought/afterthought sentence-level connection.
 #[derive(Clone, Debug)]
 pub enum SentenceConnective {
@@ -237,6 +253,12 @@ pub enum Sentence {
     /// Fields: (variable names in prenex order, body-sentence-id). Lowers to
     /// nested `∀` over the body in smuni.
     Prenex((Vec<String>, u32)),
+    /// Shared-head GIhA chain (`X S1 gi'e S2 gi'a S3 ...`). Fields: (first
+    /// predication, tails in source order). `head.head_terms` are the SHARED head
+    /// — compiled ONCE and distributed left-associatively over every tail, so a
+    /// quantified/description head (`lo terdi`, `da`) binds ONE witness across all
+    /// tails instead of re-quantifying per tail.
+    SharedHead((Bridi, Vec<GihaTail>)),
 }
 
 /// Flat AST buffer: parallel arrays indexed by u32 IDs.

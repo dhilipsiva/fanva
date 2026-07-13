@@ -217,6 +217,46 @@ fn visit_sentence(
             let nb = visit_sentence(ast, *body, snap, sm, um, tm);
             gerna_ast::Sentence::Prenex((vars.clone(), nb))
         }
+        gerna_ast::Sentence::SharedHead((head, tails)) => {
+            let nr = visit_selbri(ast, head.relation, snap, sm, um, tm);
+            let nh: Vec<u32> = head
+                .head_terms
+                .iter()
+                .map(|&s| visit_sumti(ast, s, snap, sm, um, tm))
+                .collect();
+            let nt: Vec<u32> = head
+                .tail_terms
+                .iter()
+                .map(|&s| visit_sumti(ast, s, snap, sm, um, tm))
+                .collect();
+            let new_head = gerna_ast::Bridi {
+                relation: nr,
+                head_terms: nh,
+                tail_terms: nt,
+                negated: head.negated,
+                tense: head.tense,
+                attitudinal: head.attitudinal,
+            };
+            let new_tails = tails
+                .iter()
+                .map(|t| {
+                    let tr = visit_selbri(ast, t.relation, snap, sm, um, tm);
+                    let tt: Vec<u32> = t
+                        .tail_terms
+                        .iter()
+                        .map(|&s| visit_sumti(ast, s, snap, sm, um, tm))
+                        .collect();
+                    gerna_ast::GihaTail {
+                        connective: t.connective,
+                        right_negated: t.right_negated,
+                        relation: tr,
+                        tail_terms: tt,
+                        negated: t.negated,
+                    }
+                })
+                .collect();
+            gerna_ast::Sentence::SharedHead((new_head, new_tails))
+        }
     };
     snap.sentences[new_id as usize] = mapped;
     new_id
@@ -325,6 +365,21 @@ fn rebase_sentence_inplace(s: &mut gerna_ast::Sentence, sb: u32, ub: u32, tb: u3
         }
         gerna_ast::Sentence::Prenex((_, body)) => {
             *body += tb;
+        }
+        gerna_ast::Sentence::SharedHead((head, tails)) => {
+            head.relation += sb;
+            for i in head.head_terms.iter_mut() {
+                *i += ub;
+            }
+            for i in head.tail_terms.iter_mut() {
+                *i += ub;
+            }
+            for t in tails.iter_mut() {
+                t.relation += sb;
+                for i in t.tail_terms.iter_mut() {
+                    *i += ub;
+                }
+            }
         }
     }
 }
@@ -517,6 +572,26 @@ fn resolve_sentence_go_i(
             resolve_sentence_go_i(ast, body_idx as usize, current, arity_of)?;
             Ok(())
         }
+        gerna_ast::Sentence::SharedHead((head, tails)) => {
+            // Resolve embedded go'i (e.g. `lo nu go'i`) in the head's and each
+            // tail's selbri + terms against the prior antecedent `current`; a
+            // bare-go'i selbri resolves to the antecedent relation via
+            // `resolve_selbri_go_i`. Then this shared-head sentence becomes the
+            // antecedent for the next go'i.
+            let mut seen = std::collections::HashSet::new();
+            resolve_selbri_go_i(ast, head.relation, &*current, &mut seen, arity_of)?;
+            for t in head.head_terms.iter().chain(&head.tail_terms) {
+                resolve_sumti_go_i(ast, *t, &*current, &mut seen, arity_of)?;
+            }
+            for tail in &tails {
+                resolve_selbri_go_i(ast, tail.relation, &*current, &mut seen, arity_of)?;
+                for t in &tail.tail_terms {
+                    resolve_sumti_go_i(ast, *t, &*current, &mut seen, arity_of)?;
+                }
+            }
+            *current = Some(sentence_idx as u32);
+            Ok(())
+        }
     }
 }
 
@@ -655,6 +730,18 @@ fn resolve_nested_sentence_go_i(
         gerna_ast::Sentence::Prenex((_, body)) => {
             resolve_nested_sentence_go_i(ast, body, current, seen, arity_of)?;
         }
+        gerna_ast::Sentence::SharedHead((head, tails)) => {
+            resolve_selbri_go_i(ast, head.relation, current, seen, arity_of)?;
+            for t in head.head_terms.iter().chain(&head.tail_terms) {
+                resolve_sumti_go_i(ast, *t, current, seen, arity_of)?;
+            }
+            for tail in &tails {
+                resolve_selbri_go_i(ast, tail.relation, current, seen, arity_of)?;
+                for t in &tail.tail_terms {
+                    resolve_sumti_go_i(ast, *t, current, seen, arity_of)?;
+                }
+            }
+        }
     }
     Ok(())
 }
@@ -752,6 +839,20 @@ fn sentence_reaches_go_i(
             sentence_reaches_go_i(ast, *l, seen) || sentence_reaches_go_i(ast, *r, seen)
         }
         gerna_ast::Sentence::Prenex((_, body)) => sentence_reaches_go_i(ast, *body, seen),
+        gerna_ast::Sentence::SharedHead((head, tails)) => {
+            selbri_reaches_go_i(ast, head.relation, seen)
+                || head
+                    .head_terms
+                    .iter()
+                    .chain(&head.tail_terms)
+                    .any(|&s| sumti_reaches_go_i(ast, s, seen))
+                || tails.iter().any(|t| {
+                    selbri_reaches_go_i(ast, t.relation, seen)
+                        || t.tail_terms
+                            .iter()
+                            .any(|&s| sumti_reaches_go_i(ast, s, seen))
+                })
+        }
     }
 }
 
