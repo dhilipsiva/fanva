@@ -9,7 +9,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 feature in legacy-Lojban mode) at the rev pinned in `NIBLI_REV`. The extraction
 was copy-only; the Klaro/reasoning side stayed in nibli. `README.md` has the
 architecture overview; `TODO.md` tracks open work; `docs/` holds provenance
-material (genesis prompt, historical trackers, known-failures reference).
+material (genesis prompt, historical trackers). The known-failures backlog is
+now compiled regression tests in `fanva/tests/known_failures.rs`.
 
 ### The core loop (implemented, in `fanva/`)
 

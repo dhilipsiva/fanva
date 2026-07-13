@@ -54,11 +54,6 @@ when it lands.
   wrong answer). *(The determinism-corpus GIhA + negative-conjunct lines are now
   seeded there for the fuzzer, and pinned under camxes in
   `fanva-verify/tests/parser_differential.rs` + gerna's negative-conjunct test.)*
-- **Port the known-failures backlog into compiled tests** — the pinned
-  gerna/smuni miscompilation cases carried from nibli
-  (`docs/reference/known-failures/`) are written against nibli-engine APIs;
-  re-express them as gerna/smuni-level regression tests (parse → compile →
-  assert on the LogicBuffer) so they gate here instead of being documentation.
 
 ## Infrastructure
 
